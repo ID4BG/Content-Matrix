@@ -12,6 +12,7 @@ import Dashboard from "@/pages/dashboard";
 import CampaignList from "@/pages/campaign-list";
 import CampaignNew from "@/pages/campaign-new";
 import CampaignDetail from "@/pages/campaign-detail";
+import CampaignChannel from "@/pages/campaign-channel";
 import PieceDetail from "@/pages/piece-detail";
 import FolderList from "@/pages/folder-list";
 import FolderDetail from "@/pages/folder-detail";
@@ -91,6 +92,7 @@ function Router() {
       <Route path="/campaigns"><PrivateRoute component={CampaignList} /></Route>
       <Route path="/campaigns/new"><PrivateRoute component={CampaignNew} /></Route>
       <Route path="/campaigns/:id"><PrivateRoute component={CampaignDetail} /></Route>
+      <Route path="/campaigns/:id/channels/:channel"><PrivateRoute component={CampaignChannel} /></Route>
       <Route path="/campaigns/:campaignId/pieces/:pieceId"><PrivateRoute component={PieceDetail} /></Route>
       <Route path="/folders"><PrivateRoute component={FolderList} /></Route>
       <Route path="/folders/:id"><PrivateRoute component={FolderDetail} /></Route>

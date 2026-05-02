@@ -235,6 +235,66 @@ export const UpdateCampaignChannelsResponse = zod.object({
 });
 
 /**
+ * @summary List members of a campaign
+ */
+export const ListCampaignMembersParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListCampaignMembersResponseItem = zod.object({
+  id: zod.number(),
+  campaignId: zod.number(),
+  email: zod.string(),
+  role: zod.enum(["owner", "marketer", "team_member"]),
+  accepted: zod.boolean(),
+  invitedAt: zod.coerce.date(),
+});
+export const ListCampaignMembersResponse = zod.array(
+  ListCampaignMembersResponseItem,
+);
+
+/**
+ * @summary Invite a member to a campaign
+ */
+export const InviteCampaignMemberParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const InviteCampaignMemberBody = zod.object({
+  email: zod.string(),
+  role: zod.enum(["owner", "marketer", "team_member"]),
+});
+
+/**
+ * @summary Update a campaign member's role
+ */
+export const UpdateCampaignMemberParams = zod.object({
+  id: zod.coerce.number(),
+  memberId: zod.coerce.number(),
+});
+
+export const UpdateCampaignMemberBody = zod.object({
+  role: zod.enum(["owner", "marketer", "team_member"]),
+});
+
+export const UpdateCampaignMemberResponse = zod.object({
+  id: zod.number(),
+  campaignId: zod.number(),
+  email: zod.string(),
+  role: zod.enum(["owner", "marketer", "team_member"]),
+  accepted: zod.boolean(),
+  invitedAt: zod.coerce.date(),
+});
+
+/**
+ * @summary Remove a member from a campaign
+ */
+export const DeleteCampaignMemberParams = zod.object({
+  id: zod.coerce.number(),
+  memberId: zod.coerce.number(),
+});
+
+/**
  * @summary List content pieces
  */
 export const ListContentPiecesQueryParams = zod.object({

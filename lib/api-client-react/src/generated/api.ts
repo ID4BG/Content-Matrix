@@ -19,6 +19,7 @@ import type {
 import type {
   ActivityItem,
   Campaign,
+  CampaignMember,
   Comment,
   ContentPiece,
   CreateCampaignBody,
@@ -28,12 +29,14 @@ import type {
   DashboardSummary,
   Folder,
   HealthStatus,
+  InviteCampaignMemberBody,
   ListCampaignsParams,
   ListCommentsParams,
   ListContentPiecesParams,
   SharedFolderView,
   UpdateCampaignBody,
   UpdateCampaignChannelsBody,
+  UpdateCampaignMemberBody,
   UpdateContentPieceBody,
   UpdateFolderBody,
 } from "./api.schemas";
@@ -730,6 +733,355 @@ export const useUpdateCampaignChannels = <
   TContext
 > => {
   return useMutation(getUpdateCampaignChannelsMutationOptions(options));
+};
+
+/**
+ * @summary List members of a campaign
+ */
+export const getListCampaignMembersUrl = (id: number) => {
+  return `/api/campaigns/${id}/members`;
+};
+
+export const listCampaignMembers = async (
+  id: number,
+  options?: RequestInit,
+): Promise<CampaignMember[]> => {
+  return customFetch<CampaignMember[]>(getListCampaignMembersUrl(id), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListCampaignMembersQueryKey = (id: number) => {
+  return [`/api/campaigns/${id}/members`] as const;
+};
+
+export const getListCampaignMembersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listCampaignMembers>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCampaignMembers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListCampaignMembersQueryKey(id);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listCampaignMembers>>
+  > = ({ signal }) => listCampaignMembers(id, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!id,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof listCampaignMembers>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListCampaignMembersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listCampaignMembers>>
+>;
+export type ListCampaignMembersQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List members of a campaign
+ */
+
+export function useListCampaignMembers<
+  TData = Awaited<ReturnType<typeof listCampaignMembers>>,
+  TError = ErrorType<unknown>,
+>(
+  id: number,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listCampaignMembers>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListCampaignMembersQueryOptions(id, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * @summary Invite a member to a campaign
+ */
+export const getInviteCampaignMemberUrl = (id: number) => {
+  return `/api/campaigns/${id}/members`;
+};
+
+export const inviteCampaignMember = async (
+  id: number,
+  inviteCampaignMemberBody: InviteCampaignMemberBody,
+  options?: RequestInit,
+): Promise<CampaignMember> => {
+  return customFetch<CampaignMember>(getInviteCampaignMemberUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(inviteCampaignMemberBody),
+  });
+};
+
+export const getInviteCampaignMemberMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof inviteCampaignMember>>,
+    TError,
+    { id: number; data: BodyType<InviteCampaignMemberBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof inviteCampaignMember>>,
+  TError,
+  { id: number; data: BodyType<InviteCampaignMemberBody> },
+  TContext
+> => {
+  const mutationKey = ["inviteCampaignMember"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof inviteCampaignMember>>,
+    { id: number; data: BodyType<InviteCampaignMemberBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return inviteCampaignMember(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type InviteCampaignMemberMutationResult = NonNullable<
+  Awaited<ReturnType<typeof inviteCampaignMember>>
+>;
+export type InviteCampaignMemberMutationBody =
+  BodyType<InviteCampaignMemberBody>;
+export type InviteCampaignMemberMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Invite a member to a campaign
+ */
+export const useInviteCampaignMember = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof inviteCampaignMember>>,
+    TError,
+    { id: number; data: BodyType<InviteCampaignMemberBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof inviteCampaignMember>>,
+  TError,
+  { id: number; data: BodyType<InviteCampaignMemberBody> },
+  TContext
+> => {
+  return useMutation(getInviteCampaignMemberMutationOptions(options));
+};
+
+/**
+ * @summary Update a campaign member's role
+ */
+export const getUpdateCampaignMemberUrl = (id: number, memberId: number) => {
+  return `/api/campaigns/${id}/members/${memberId}`;
+};
+
+export const updateCampaignMember = async (
+  id: number,
+  memberId: number,
+  updateCampaignMemberBody: UpdateCampaignMemberBody,
+  options?: RequestInit,
+): Promise<CampaignMember> => {
+  return customFetch<CampaignMember>(getUpdateCampaignMemberUrl(id, memberId), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(updateCampaignMemberBody),
+  });
+};
+
+export const getUpdateCampaignMemberMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCampaignMember>>,
+    TError,
+    { id: number; memberId: number; data: BodyType<UpdateCampaignMemberBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof updateCampaignMember>>,
+  TError,
+  { id: number; memberId: number; data: BodyType<UpdateCampaignMemberBody> },
+  TContext
+> => {
+  const mutationKey = ["updateCampaignMember"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateCampaignMember>>,
+    { id: number; memberId: number; data: BodyType<UpdateCampaignMemberBody> }
+  > = (props) => {
+    const { id, memberId, data } = props ?? {};
+
+    return updateCampaignMember(id, memberId, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UpdateCampaignMemberMutationResult = NonNullable<
+  Awaited<ReturnType<typeof updateCampaignMember>>
+>;
+export type UpdateCampaignMemberMutationBody =
+  BodyType<UpdateCampaignMemberBody>;
+export type UpdateCampaignMemberMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Update a campaign member's role
+ */
+export const useUpdateCampaignMember = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof updateCampaignMember>>,
+    TError,
+    { id: number; memberId: number; data: BodyType<UpdateCampaignMemberBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof updateCampaignMember>>,
+  TError,
+  { id: number; memberId: number; data: BodyType<UpdateCampaignMemberBody> },
+  TContext
+> => {
+  return useMutation(getUpdateCampaignMemberMutationOptions(options));
+};
+
+/**
+ * @summary Remove a member from a campaign
+ */
+export const getDeleteCampaignMemberUrl = (id: number, memberId: number) => {
+  return `/api/campaigns/${id}/members/${memberId}`;
+};
+
+export const deleteCampaignMember = async (
+  id: number,
+  memberId: number,
+  options?: RequestInit,
+): Promise<void> => {
+  return customFetch<void>(getDeleteCampaignMemberUrl(id, memberId), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getDeleteCampaignMemberMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCampaignMember>>,
+    TError,
+    { id: number; memberId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof deleteCampaignMember>>,
+  TError,
+  { id: number; memberId: number },
+  TContext
+> => {
+  const mutationKey = ["deleteCampaignMember"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof deleteCampaignMember>>,
+    { id: number; memberId: number }
+  > = (props) => {
+    const { id, memberId } = props ?? {};
+
+    return deleteCampaignMember(id, memberId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DeleteCampaignMemberMutationResult = NonNullable<
+  Awaited<ReturnType<typeof deleteCampaignMember>>
+>;
+
+export type DeleteCampaignMemberMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Remove a member from a campaign
+ */
+export const useDeleteCampaignMember = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof deleteCampaignMember>>,
+    TError,
+    { id: number; memberId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof deleteCampaignMember>>,
+  TError,
+  { id: number; memberId: number },
+  TContext
+> => {
+  return useMutation(getDeleteCampaignMemberMutationOptions(options));
 };
 
 /**

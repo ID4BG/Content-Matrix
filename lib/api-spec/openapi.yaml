@@ -168,6 +168,98 @@ paths:
               schema:
                 $ref: "#/components/schemas/Campaign"
 
+  /campaigns/{id}/members:
+    get:
+      operationId: listCampaignMembers
+      tags: [campaigns]
+      summary: List members of a campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of campaign members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CampaignMember"
+    post:
+      operationId: inviteCampaignMember
+      tags: [campaigns]
+      summary: Invite a member to a campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteCampaignMemberBody"
+      responses:
+        "201":
+          description: Invited member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignMember"
+
+  /campaigns/{id}/members/{memberId}:
+    patch:
+      operationId: updateCampaignMember
+      tags: [campaigns]
+      summary: Update a campaign member's role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCampaignMemberBody"
+      responses:
+        "200":
+          description: Updated member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CampaignMember"
+    delete:
+      operationId: deleteCampaignMember
+      tags: [campaigns]
+      summary: Remove a member from a campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Removed
+
   /content-pieces:
     get:
       operationId: listContentPieces
@@ -567,6 +659,43 @@ components:
             type: string
             enum: [instagram_reel, linkedin_post, youtube_long, youtube_short, facebook_carousel, facebook_group_post, reddit_post, threads_post, source_article]
       required: [channels]
+
+    CampaignMember:
+      type: object
+      properties:
+        id:
+          type: integer
+        campaignId:
+          type: integer
+        email:
+          type: string
+        role:
+          type: string
+          enum: [owner, marketer, team_member]
+        accepted:
+          type: boolean
+        invitedAt:
+          type: string
+          format: date-time
+      required: [id, campaignId, email, role, accepted, invitedAt]
+
+    InviteCampaignMemberBody:
+      type: object
+      properties:
+        email:
+          type: string
+        role:
+          type: string
+          enum: [owner, marketer, team_member]
+      required: [email, role]
+
+    UpdateCampaignMemberBody:
+      type: object
+      properties:
+        role:
+          type: string
+          enum: [owner, marketer, team_member]
+      required: [role]
 
     ContentPiece:
       type: object

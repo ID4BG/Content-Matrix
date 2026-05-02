@@ -106,6 +106,51 @@ export interface UpdateCampaignChannelsBody {
   channels: UpdateCampaignChannelsBodyChannelsItem[];
 }
 
+export type CampaignMemberRole =
+  (typeof CampaignMemberRole)[keyof typeof CampaignMemberRole];
+
+export const CampaignMemberRole = {
+  owner: "owner",
+  marketer: "marketer",
+  team_member: "team_member",
+} as const;
+
+export interface CampaignMember {
+  id: number;
+  campaignId: number;
+  email: string;
+  role: CampaignMemberRole;
+  accepted: boolean;
+  invitedAt: string;
+}
+
+export type InviteCampaignMemberBodyRole =
+  (typeof InviteCampaignMemberBodyRole)[keyof typeof InviteCampaignMemberBodyRole];
+
+export const InviteCampaignMemberBodyRole = {
+  owner: "owner",
+  marketer: "marketer",
+  team_member: "team_member",
+} as const;
+
+export interface InviteCampaignMemberBody {
+  email: string;
+  role: InviteCampaignMemberBodyRole;
+}
+
+export type UpdateCampaignMemberBodyRole =
+  (typeof UpdateCampaignMemberBodyRole)[keyof typeof UpdateCampaignMemberBodyRole];
+
+export const UpdateCampaignMemberBodyRole = {
+  owner: "owner",
+  marketer: "marketer",
+  team_member: "team_member",
+} as const;
+
+export interface UpdateCampaignMemberBody {
+  role: UpdateCampaignMemberBodyRole;
+}
+
 export type ContentPieceChannel =
   (typeof ContentPieceChannel)[keyof typeof ContentPieceChannel];
 
