@@ -195,9 +195,9 @@ export default function Settings() {
       <section className="space-y-4">
         <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">About</h2>
         <div className="border border-border bg-white p-6 space-y-3">
-          <div className="bg-black overflow-hidden -mx-6 -mt-6 mb-4" style={{ height: '64px' }}>
+          <div className="overflow-hidden -mx-6 -mt-6 mb-4" style={{ height: '64px' }}>
             <img
-              src="/logo-full.png"
+              src="/logo-light.png"
               alt="Content Matrix"
               style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center center' }}
             />
