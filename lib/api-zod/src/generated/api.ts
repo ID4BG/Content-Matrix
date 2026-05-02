@@ -239,6 +239,19 @@ export const UpdateCampaignChannelsResponse = zod.object({
  */
 export const ListContentPiecesQueryParams = zod.object({
   campaignId: zod.coerce.number().optional(),
+  channel: zod
+    .enum([
+      "instagram_reel",
+      "linkedin_post",
+      "youtube_long",
+      "youtube_short",
+      "facebook_carousel",
+      "facebook_group_post",
+      "reddit_post",
+      "threads_post",
+      "source_article",
+    ])
+    .optional(),
 });
 
 export const ListContentPiecesResponseItem = zod.object({
@@ -261,6 +274,7 @@ export const ListContentPiecesResponseItem = zod.object({
   mediaType: zod
     .enum(["image", "video", "carousel", "text", "article"])
     .nullish(),
+  scheduledDate: zod.coerce.date().nullish(),
   status: zod.enum([
     "empty",
     "uploaded",
@@ -299,6 +313,7 @@ export const CreateContentPieceBody = zod.object({
   mediaType: zod
     .enum(["image", "video", "carousel", "text", "article"])
     .nullish(),
+  scheduledDate: zod.coerce.date().nullish(),
 });
 
 /**
@@ -328,6 +343,7 @@ export const GetContentPieceResponse = zod.object({
   mediaType: zod
     .enum(["image", "video", "carousel", "text", "article"])
     .nullish(),
+  scheduledDate: zod.coerce.date().nullish(),
   status: zod.enum([
     "empty",
     "uploaded",
@@ -355,6 +371,7 @@ export const UpdateContentPieceBody = zod.object({
   mediaType: zod
     .enum(["image", "video", "carousel", "text", "article"])
     .nullish(),
+  scheduledDate: zod.coerce.date().nullish(),
   status: zod
     .enum(["empty", "uploaded", "in_review", "approved", "needs_revision"])
     .optional(),
@@ -380,6 +397,7 @@ export const UpdateContentPieceResponse = zod.object({
   mediaType: zod
     .enum(["image", "video", "carousel", "text", "article"])
     .nullish(),
+  scheduledDate: zod.coerce.date().nullish(),
   status: zod.enum([
     "empty",
     "uploaded",
@@ -427,6 +445,7 @@ export const ApproveContentPieceResponse = zod.object({
   mediaType: zod
     .enum(["image", "video", "carousel", "text", "article"])
     .nullish(),
+  scheduledDate: zod.coerce.date().nullish(),
   status: zod.enum([
     "empty",
     "uploaded",

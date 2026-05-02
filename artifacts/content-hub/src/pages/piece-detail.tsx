@@ -1,39 +1,133 @@
 import { useRoute, Link } from "wouter";
 import { format } from "date-fns";
-import { ArrowLeft, Loader2, CheckCircle2, MessageSquare, Save, XCircle, FileText, Download, CheckCircle, Clock } from "lucide-react";
+import {
+  ArrowLeft, Loader2, CheckCircle2, MessageSquare, XCircle, Clock,
+  Upload, ImageIcon, Video, ExternalLink, ZoomIn, X, PlayCircle, Calendar,
+} from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useUser } from "@clerk/react";
 
-import { 
-  useGetContentPiece, 
-  getGetContentPieceQueryKey,
-  useUpdateContentPiece,
-  useApproveContentPiece,
-  useListComments,
-  getListCommentsQueryKey,
+import {
+  useGetContentPiece, getGetContentPieceQueryKey,
+  useUpdateContentPiece, useApproveContentPiece,
+  useListComments, getListCommentsQueryKey,
   useCreateComment,
-  ContentPieceChannel,
   UpdateContentPieceBodyStatus,
-  ContentPiece
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
-import { ChannelIcon, getChannelName } from "@/components/channel-icon";
+import { ChannelIcon, getChannelName, StatusBadge } from "@/components/channel-icon";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormMessage } from "@/components/ui/form";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
 const commentSchema = z.object({
   text: z.string().min(1, "Comment cannot be empty"),
   authorName: z.string(),
 });
+
+function isYouTubeUrl(url: string) {
+  return /youtube\.com|youtu\.be/.test(url);
+}
+
+function getYouTubeEmbedUrl(url: string): string | null {
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return match ? `https://www.youtube.com/embed/${match[1]}?autoplay=0&rel=0` : null;
+}
+
+function isImageUrl(url: string) {
+  return /\.(jpg|jpeg|png|gif|webp|svg|avif)(\?|$)/i.test(url) || url.startsWith("data:image");
+}
+
+function isVideoUrl(url: string) {
+  return /\.(mp4|mov|webm|ogg|avi|mkv)(\?|$)/i.test(url) || url.startsWith("data:video");
+}
+
+function MediaViewer({ mediaUrl, mediaType, onClose }: { mediaUrl: string; mediaType?: string | null; onClose?: () => void }) {
+  const [zoomed, setZoomed] = useState(false);
+
+  if (isYouTubeUrl(mediaUrl)) {
+    const embedUrl = getYouTubeEmbedUrl(mediaUrl);
+    return (
+      <div className="relative w-full bg-black">
+        {onClose && (
+          <button onClick={onClose} className="absolute top-2 right-2 z-10 bg-black/60 text-white rounded-full p-1 hover:bg-black">
+            <X className="w-4 h-4" />
+          </button>
+        )}
+        <div className="aspect-video">
+          <iframe
+            src={embedUrl || mediaUrl}
+            title="YouTube video"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            className="w-full h-full"
+          />
+        </div>
+        <div className="p-3 border-t border-border/30 bg-black/80 flex items-center gap-2">
+          <PlayCircle className="w-4 h-4 text-white/60" />
+          <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-white/60 hover:text-white flex items-center gap-1 transition-colors">
+            Open on YouTube <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  if (mediaType === "image" || isImageUrl(mediaUrl)) {
+    return (
+      <div className={`relative bg-secondary/10 overflow-hidden ${zoomed ? 'cursor-zoom-out' : 'cursor-zoom-in'}`} onClick={() => setZoomed(!zoomed)}>
+        {onClose && (
+          <button onClick={(e) => { e.stopPropagation(); onClose(); }} className="absolute top-2 right-2 z-10 bg-black/60 text-white rounded-full p-1 hover:bg-black">
+            <X className="w-4 h-4" />
+          </button>
+        )}
+        <div className="absolute top-2 left-2 z-10 bg-black/50 text-white rounded-full p-1">
+          <ZoomIn className="w-3.5 h-3.5" />
+        </div>
+        <img
+          src={mediaUrl}
+          alt="Content media"
+          className={`w-full object-contain transition-all duration-300 ${zoomed ? 'max-h-[80vh]' : 'max-h-80'}`}
+        />
+      </div>
+    );
+  }
+
+  if (mediaType === "video" || isVideoUrl(mediaUrl)) {
+    return (
+      <div className="relative bg-black">
+        {onClose && (
+          <button onClick={onClose} className="absolute top-2 right-2 z-10 bg-black/60 text-white rounded-full p-1 hover:bg-black">
+            <X className="w-4 h-4" />
+          </button>
+        )}
+        <video src={mediaUrl} controls className="w-full max-h-80 object-contain" />
+      </div>
+    );
+  }
+
+  // Unknown format — show as link
+  return (
+    <div className="border border-border bg-secondary/10 p-4 flex items-center gap-3">
+      {onClose && (
+        <button onClick={onClose} className="ml-auto text-muted-foreground hover:text-foreground">
+          <X className="w-4 h-4" />
+        </button>
+      )}
+      <ExternalLink className="w-5 h-5 text-muted-foreground" />
+      <a href={mediaUrl} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline break-all">
+        {mediaUrl}
+      </a>
+    </div>
+  );
+}
 
 export default function PieceDetail() {
   const [, params] = useRoute("/campaigns/:campaignId/pieces/:pieceId");
@@ -44,7 +138,7 @@ export default function PieceDetail() {
   const { user } = useUser();
 
   const { data: piece, isLoading: isPieceLoading } = useGetContentPiece(pieceId, {
-    query: { enabled: !!pieceId, queryKey: getGetContentPieceQueryKey(pieceId) }
+    query: { enabled: !!pieceId, queryKey: getGetContentPieceQueryKey(pieceId) },
   });
 
   const { data: comments, isLoading: isCommentsLoading } = useListComments(
@@ -56,98 +150,106 @@ export default function PieceDetail() {
   const approvePiece = useApproveContentPiece();
   const createComment = useCreateComment();
 
-  // Inline editing state
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState("");
-  const [isEditingBody, setIsEditingBody] = useState(false);
-  const [editBody, setEditBody] = useState("");
-  
+  const [isEditingCaption, setIsEditingCaption] = useState(false);
+  const [editCaption, setEditCaption] = useState("");
+  const [editDate, setEditDate] = useState("");
+  const [mediaUrlInput, setMediaUrlInput] = useState("");
+  const [isEditingMediaUrl, setIsEditingMediaUrl] = useState(false);
+  const [blobMediaUrl, setBlobMediaUrl] = useState<string | null>(null);
+  const [blobMediaType, setBlobMediaType] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const initializedForId = useRef<number | null>(null);
 
   useEffect(() => {
     if (piece && initializedForId.current !== pieceId) {
       initializedForId.current = pieceId;
       setEditTitle(piece.title);
-      setEditBody(piece.bodyText || "");
+      setEditCaption(piece.bodyText || "");
+      setEditDate(piece.scheduledDate ? format(new Date(piece.scheduledDate), 'yyyy-MM-dd') : "");
+      setMediaUrlInput(piece.mediaUrl || "");
     }
   }, [piece, pieceId]);
 
-  const authorName = user?.firstName || user?.emailAddresses[0]?.emailAddress || "Team Member";
+  const authorName = user?.firstName || user?.emailAddresses?.[0]?.emailAddress || "Team Member";
 
   const commentForm = useForm<z.infer<typeof commentSchema>>({
     resolver: zodResolver(commentSchema),
-    defaultValues: {
-      text: "",
-      authorName: authorName,
-    },
+    defaultValues: { text: "", authorName },
   });
 
-  // Re-initialize default value if user loads slowly
   useEffect(() => {
-    if (authorName) {
-      commentForm.setValue("authorName", authorName);
-    }
+    if (authorName) commentForm.setValue("authorName", authorName);
   }, [authorName, commentForm]);
 
-  const handleSaveTitle = () => {
-    if (editTitle.trim() === "") return;
-    setIsEditingTitle(false);
-    if (editTitle === piece?.title) return;
-
+  const saveField = useCallback((field: Record<string, unknown>) => {
     updatePiece.mutate(
-      { id: pieceId, data: { title: editTitle } },
-      {
-        onSuccess: (updated) => {
-          queryClient.setQueryData(getGetContentPieceQueryKey(pieceId), updated);
-        },
-        onError: () => {
-          toast({ title: "Error", description: "Failed to update title", variant: "destructive" });
-          setEditTitle(piece?.title || "");
-        }
-      }
+      { id: pieceId, data: field as any },
+      { onSuccess: (u) => queryClient.setQueryData(getGetContentPieceQueryKey(pieceId), u) }
     );
+  }, [pieceId, updatePiece, queryClient]);
+
+  const handleSaveTitle = () => {
+    setIsEditingTitle(false);
+    if (!editTitle.trim() || editTitle === piece?.title) return;
+    saveField({ title: editTitle });
   };
 
-  const handleSaveBody = () => {
-    setIsEditingBody(false);
-    if (editBody === (piece?.bodyText || "")) return;
+  const handleSaveCaption = () => {
+    setIsEditingCaption(false);
+    if (editCaption === (piece?.bodyText || "")) return;
+    saveField({ bodyText: editCaption });
+  };
 
-    updatePiece.mutate(
-      { id: pieceId, data: { bodyText: editBody } },
-      {
-        onSuccess: (updated) => {
-          queryClient.setQueryData(getGetContentPieceQueryKey(pieceId), updated);
-        },
-        onError: () => {
-          toast({ title: "Error", description: "Failed to update body", variant: "destructive" });
-          setEditBody(piece?.bodyText || "");
-        }
-      }
-    );
+  const handleSaveDate = (val: string) => {
+    setEditDate(val);
+    saveField({ scheduledDate: val ? new Date(val).toISOString() : null });
+  };
+
+  const handleSaveMediaUrl = () => {
+    setIsEditingMediaUrl(false);
+    if (mediaUrlInput === (piece?.mediaUrl || "")) return;
+    const url = mediaUrlInput.trim();
+    if (!url) { saveField({ mediaUrl: null, mediaType: null }); return; }
+    let mediaType: string = "image";
+    if (isYouTubeUrl(url) || isVideoUrl(url)) mediaType = "video";
+    else if (isImageUrl(url)) mediaType = "image";
+    saveField({ mediaUrl: url, mediaType });
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    const type = file.type.startsWith("video") ? "video" : "image";
+    setBlobMediaUrl(url);
+    setBlobMediaType(type);
+    setMediaUrlInput(url);
+    // Store the data URL in the backend so it persists
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      saveField({ mediaUrl: dataUrl, mediaType: type });
+      setMediaUrlInput(dataUrl);
+    };
+    reader.readAsDataURL(file);
+    toast({ title: "Media uploaded", description: file.name });
   };
 
   const handleStatusUpdate = (status: UpdateContentPieceBodyStatus) => {
-    updatePiece.mutate(
-      { id: pieceId, data: { status } },
-      {
-        onSuccess: (updated) => {
-          queryClient.setQueryData(getGetContentPieceQueryKey(pieceId), updated);
-          toast({ title: "Status Updated", description: `Piece marked as ${status.replace('_', ' ')}` });
-        }
-      }
-    );
+    saveField({ status });
+    toast({ title: `Marked as ${status.replace(/_/g, ' ')}` });
   };
 
   const handleApprove = () => {
-    approvePiece.mutate(
-      { id: pieceId },
-      {
-        onSuccess: (updated) => {
-          queryClient.setQueryData(getGetContentPieceQueryKey(pieceId), updated);
-          toast({ title: "Piece Approved", description: "This piece is ready for publishing." });
-        }
-      }
-    );
+    approvePiece.mutate({ id: pieceId }, {
+      onSuccess: (u) => {
+        queryClient.setQueryData(getGetContentPieceQueryKey(pieceId), u);
+        toast({ title: "Piece approved" });
+      },
+    });
   };
 
   const onCommentSubmit = (values: z.infer<typeof commentSchema>) => {
@@ -157,251 +259,277 @@ export default function PieceDetail() {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getListCommentsQueryKey({ contentPieceId: pieceId }) });
           queryClient.invalidateQueries({ queryKey: getGetContentPieceQueryKey(pieceId) });
-          commentForm.reset({ text: "", authorName: authorName });
-        }
+          commentForm.reset({ text: "", authorName });
+        },
       }
     );
   };
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file.name);
-      // Mocking upload for now, ideally would upload and set mediaUrl via API
-      updatePiece.mutate(
-        { id: pieceId, data: { mediaType: file.type.startsWith('video') ? 'video' : 'image', mediaUrl: 'mock-url' } },
-        {
-          onSuccess: (updated) => {
-            queryClient.setQueryData(getGetContentPieceQueryKey(pieceId), updated);
-            toast({ title: "Media Uploaded", description: `File ${file.name} attached.` });
-          }
-        }
-      );
-    }
-  };
+  const effectiveMediaUrl = blobMediaUrl || piece?.mediaUrl;
+  const effectiveMediaType = blobMediaType || piece?.mediaType;
 
   if (isPieceLoading) {
     return (
-      <div className="space-y-8 max-w-5xl mx-auto">
-        <Skeleton className="h-8 w-48" />
-        <div className="flex flex-col lg:flex-row gap-12 items-start">
-          <div className="flex-1 w-full space-y-8">
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-64 w-full" />
-          </div>
-          <div className="w-full lg:w-80 shrink-0 space-y-4">
-            <Skeleton className="h-48 w-full" />
-            <Skeleton className="h-64 w-full" />
-          </div>
-        </div>
+      <div className="space-y-6 max-w-5xl">
+        <Skeleton className="h-5 w-40" />
+        <Skeleton className="h-80 w-full" />
+        <Skeleton className="h-10 w-3/4" />
+        <Skeleton className="h-40 w-full" />
       </div>
     );
   }
 
   if (!piece) {
-    return <div className="text-center py-24 text-lg font-medium">Content piece not found</div>;
+    return <div className="text-center py-24"><p className="text-muted-foreground">Content piece not found.</p></div>;
   }
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div className="max-w-5xl">
       <Link href={`/campaigns/${campaignId}`} className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors group mb-8">
         <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
         Back to Campaign
       </Link>
 
-      <div className="flex flex-col lg:flex-row gap-12 items-start">
-        {/* Main Content Area */}
-        <div className="flex-1 w-full space-y-8">
-          <div className="flex items-center gap-4 pb-4">
-            <div className="flex items-center gap-2">
-              <ChannelIcon channel={piece.channel as any} className="w-5 h-5 text-foreground" />
-              <span className="font-bold uppercase tracking-widest text-sm">{getChannelName(piece.channel as any)}</span>
+      <div className="flex flex-col lg:flex-row gap-10">
+        {/* Main */}
+        <div className="flex-1 min-w-0 space-y-8">
+          {/* Channel + status */}
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 border border-border flex items-center justify-center">
+              <ChannelIcon channel={piece.channel as any} className="w-3.5 h-3.5" />
             </div>
+            <span className="font-bold text-sm uppercase tracking-widest">{getChannelName(piece.channel as any)}</span>
             <span className="text-border">|</span>
-            <Badge variant="outline" className={`px-3 py-1 text-[10px] uppercase tracking-widest font-bold rounded-none ${
-                piece.status === 'in_review' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                piece.status === 'approved' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                piece.status === 'needs_revision' ? 'bg-rose-50 text-rose-700 border-rose-200' :
-                'bg-secondary text-secondary-foreground border-border'
-            }`}>
-              {piece.status.replace('_', ' ')}
-            </Badge>
+            <StatusBadge status={piece.status} />
           </div>
 
-          <div className="space-y-8">
-            <div className="group relative">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2 block">Title</label>
-              {isEditingTitle ? (
-                <div className="flex items-start gap-2">
-                  <Input 
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    className="text-2xl font-bold py-6 px-4 bg-secondary/20 rounded-none border-border"
-                    autoFocus
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveTitle(); if (e.key === 'Escape') { setIsEditingTitle(false); setEditTitle(piece.title); } }}
-                    onBlur={handleSaveTitle}
-                  />
-                </div>
-              ) : (
-                <div 
-                  className="text-3xl md:text-4xl font-bold hover:bg-secondary/30 p-4 -ml-4 rounded-sm cursor-text transition-colors border border-transparent hover:border-border"
-                  onClick={() => setIsEditingTitle(true)}
-                >
-                  {piece.title}
-                </div>
-              )}
-            </div>
-
-            <div className="group relative">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2 block">Content Body</label>
-              {isEditingBody ? (
-                <div className="space-y-3">
-                  <Textarea 
-                    value={editBody}
-                    onChange={(e) => setEditBody(e.target.value)}
-                    className="min-h-[300px] text-lg leading-relaxed resize-y bg-secondary/20 p-6 rounded-none border-border"
-                    autoFocus
-                    placeholder="Write your content here..."
-                  />
-                  <div className="flex gap-2 justify-end">
-                    <Button variant="outline" className="rounded-none font-semibold" onClick={() => { setIsEditingBody(false); setEditBody(piece.bodyText || ""); }}>Cancel</Button>
-                    <Button onClick={handleSaveBody} className="rounded-none font-semibold bg-black text-white hover:bg-black/80">Save Content</Button>
-                  </div>
-                </div>
-              ) : (
-                <div 
-                  className="min-h-[200px] text-lg leading-relaxed hover:bg-secondary/30 p-6 -ml-6 rounded-sm cursor-text transition-colors border border-transparent hover:border-border whitespace-pre-wrap bg-white border border-border"
-                  onClick={() => setIsEditingBody(true)}
-                >
-                  {piece.bodyText || <span className="text-muted-foreground italic text-base opacity-50">Click to add content...</span>}
-                </div>
-              )}
-            </div>
-            
-            {/* Media Area */}
-            <div className="pt-4">
-              <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 block">Attached Media</label>
-              <input 
-                ref={fileInputRef} 
-                type="file" 
-                accept="image/*,video/*" 
-                className="hidden" 
-                onChange={handleFileChange} 
+          {/* Media Viewer */}
+          <div className="border border-border overflow-hidden">
+            {effectiveMediaUrl ? (
+              <MediaViewer
+                mediaUrl={effectiveMediaUrl}
+                mediaType={effectiveMediaType}
+                onClose={() => {
+                  setBlobMediaUrl(null);
+                  setBlobMediaType(null);
+                }}
               />
-              <div 
-                onClick={() => fileInputRef.current?.click()} 
-                className="border border-dashed border-border bg-white h-32 flex items-center justify-center flex-col gap-2 cursor-pointer hover:border-black transition-colors"
+            ) : (
+              <div
+                className="aspect-video bg-secondary/10 flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-secondary/20 transition-colors group"
+                onClick={() => fileInputRef.current?.click()}
               >
-                {piece.mediaUrl || selectedFile ? (
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-black" />
-                    <span className="font-semibold text-black">{selectedFile || 'Media attached'}</span>
-                  </div>
+                <div className="w-14 h-14 border border-border flex items-center justify-center group-hover:border-black transition-colors">
+                  <Upload className="w-6 h-6 text-muted-foreground group-hover:text-black transition-colors" />
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-sm">Upload media or paste a URL below</p>
+                  <p className="text-xs text-muted-foreground mt-1">Photo, video, or YouTube link</p>
+                </div>
+              </div>
+            )}
+
+            {/* Media URL bar */}
+            <div className="border-t border-border bg-secondary/10 p-3 flex items-center gap-2">
+              <div className="flex-1">
+                {isEditingMediaUrl ? (
+                  <Input
+                    value={mediaUrlInput}
+                    onChange={(e) => setMediaUrlInput(e.target.value)}
+                    className="rounded-none h-8 text-xs font-mono"
+                    placeholder="Paste YouTube, image, or video URL..."
+                    autoFocus
+                    onBlur={handleSaveMediaUrl}
+                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveMediaUrl(); if (e.key === 'Escape') setIsEditingMediaUrl(false); }}
+                  />
                 ) : (
-                  <>
-                    <Download className="w-5 h-5 text-muted-foreground" />
-                    <span className="text-sm font-semibold text-muted-foreground">Upload image or video</span>
-                  </>
+                  <button
+                    onClick={() => setIsEditingMediaUrl(true)}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors text-left w-full truncate"
+                  >
+                    {piece.mediaUrl ? (
+                      <span className="font-mono">{piece.mediaUrl.startsWith('data:') ? 'Uploaded file (data URL)' : piece.mediaUrl}</span>
+                    ) : (
+                      <span className="italic">Click to paste media URL…</span>
+                    )}
+                  </button>
                 )}
               </div>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors border border-border/60 hover:border-black px-2 py-1"
+              >
+                <Upload className="w-3 h-3" />
+                Upload
+              </button>
+              {piece.mediaUrl && !piece.mediaUrl.startsWith('data:') && (
+                <a href={piece.mediaUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 text-muted-foreground hover:text-foreground transition-colors">
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
+              )}
             </div>
+          </div>
+
+          <input ref={fileInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleFileUpload} />
+
+          {/* Title */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Title</label>
+            {isEditingTitle ? (
+              <Input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="rounded-none text-xl font-bold"
+                autoFocus
+                onBlur={handleSaveTitle}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSaveTitle(); if (e.key === 'Escape') { setIsEditingTitle(false); setEditTitle(piece.title); } }}
+              />
+            ) : (
+              <h1
+                className="text-2xl font-bold tracking-tight cursor-text hover:bg-secondary/20 px-2 py-1 -ml-2 rounded-sm transition-colors group flex items-center gap-2"
+                onClick={() => setIsEditingTitle(true)}
+              >
+                {piece.title}
+              </h1>
+            )}
+          </div>
+
+          {/* Scheduled Date */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1">
+              <Calendar className="w-3 h-3" /> Scheduled Date
+            </label>
+            <Input
+              type="date"
+              value={editDate}
+              onChange={(e) => handleSaveDate(e.target.value)}
+              className="rounded-none w-56"
+            />
+          </div>
+
+          {/* Caption */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Caption / Body</label>
+            {isEditingCaption ? (
+              <div className="space-y-2">
+                <Textarea
+                  value={editCaption}
+                  onChange={(e) => setEditCaption(e.target.value)}
+                  className="rounded-none min-h-[180px] resize-y text-sm leading-relaxed"
+                  autoFocus
+                  placeholder="Write your caption or body text..."
+                />
+                <div className="flex gap-2 justify-end">
+                  <Button variant="ghost" size="sm" className="rounded-none" onClick={() => { setIsEditingCaption(false); setEditCaption(piece.bodyText || ""); }}>Cancel</Button>
+                  <Button size="sm" onClick={handleSaveCaption} className="bg-black text-white rounded-none">Save</Button>
+                </div>
+              </div>
+            ) : (
+              <div
+                className="min-h-[120px] cursor-text hover:bg-secondary/20 px-3 py-3 -ml-3 rounded-sm transition-colors border border-transparent hover:border-border whitespace-pre-wrap text-sm leading-relaxed"
+                onClick={() => setIsEditingCaption(true)}
+              >
+                {piece.bodyText || <span className="text-muted-foreground italic opacity-60">Click to add caption or body text…</span>}
+              </div>
+            )}
+          </div>
+
+          {/* Meta */}
+          <div className="text-xs text-muted-foreground font-semibold uppercase tracking-widest border-t border-border/40 pt-4 flex flex-wrap gap-4">
+            <span>Created {format(new Date(piece.createdAt), 'MMM d, yyyy')}</span>
+            <span>Updated {format(new Date(piece.updatedAt), 'MMM d, yyyy')}</span>
+            {piece.approvedAt && <span className="text-emerald-600">Approved {format(new Date(piece.approvedAt), 'MMM d, yyyy')}</span>}
+            <span>{piece.commentCount} {piece.commentCount === 1 ? 'comment' : 'comments'}</span>
           </div>
         </div>
 
         {/* Sidebar */}
-        <div className="w-full lg:w-80 shrink-0 space-y-8">
+        <div className="w-full lg:w-72 shrink-0 space-y-6">
           {/* Actions */}
-          <div className="bg-white border border-border p-6 space-y-4">
-            <h3 className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground mb-4">Actions</h3>
-            
+          <div className="border border-border bg-white p-5 space-y-3">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Actions</h3>
+
             {piece.status !== 'approved' && (
-              <Button 
+              <Button
                 onClick={handleApprove}
                 disabled={approvePiece.isPending}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-none h-12"
+                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-none h-10 font-semibold"
               >
-                {approvePiece.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-                Approve Piece
+                {approvePiece.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                Approve
               </Button>
             )}
-            
-            {piece.status !== 'needs_revision' && piece.status !== 'approved' && (
-              <Button 
-                variant="outline"
-                onClick={() => handleStatusUpdate('needs_revision')}
-                className="w-full text-rose-600 border-rose-200 hover:text-rose-700 hover:bg-rose-50 h-12 rounded-none font-semibold"
-              >
-                <XCircle className="w-4 h-4 mr-2" />
-                Request Revision
-              </Button>
-            )}
-
-            {piece.status === 'needs_revision' && (
-              <Button 
+            {piece.status !== 'in_review' && piece.status !== 'approved' && (
+              <Button
                 variant="outline"
                 onClick={() => handleStatusUpdate('in_review')}
-                className="w-full h-12 rounded-none font-semibold border-border"
+                className="w-full rounded-none h-10 font-semibold border-border"
               >
                 <Clock className="w-4 h-4 mr-2" />
                 Submit for Review
               </Button>
             )}
+            {piece.status !== 'needs_revision' && piece.status !== 'approved' && (
+              <Button
+                variant="outline"
+                onClick={() => handleStatusUpdate('needs_revision')}
+                className="w-full text-rose-600 border-rose-200 hover:bg-rose-50 rounded-none h-10 font-semibold"
+              >
+                <XCircle className="w-4 h-4 mr-2" />
+                Needs Revision
+              </Button>
+            )}
           </div>
 
           {/* Comments */}
-          <div className="bg-white border border-border flex flex-col">
-            <div className="p-4 border-b border-border flex items-center gap-2 bg-secondary/10">
-              <MessageSquare className="w-4 h-4 text-black" />
-              <h3 className="font-bold text-[10px] uppercase tracking-widest text-black">Discussion ({piece.commentCount})</h3>
+          <div className="border border-border bg-white flex flex-col">
+            <div className="px-5 py-3 border-b border-border flex items-center gap-2 bg-secondary/10">
+              <MessageSquare className="w-4 h-4" />
+              <h3 className="text-[10px] font-bold uppercase tracking-widest">Comments ({piece.commentCount})</h3>
             </div>
-            
-            <div className="p-6 space-y-6 max-h-[400px] overflow-y-auto">
+
+            <div className="p-4 space-y-5 max-h-80 overflow-y-auto">
               {isCommentsLoading ? (
-                <div className="space-y-4">
-                  {Array(3).fill(0).map((_, i) => (
-                    <div key={i} className="flex gap-3">
-                      <Skeleton className="w-8 h-8 rounded-full" />
-                      <div className="flex-1 space-y-2"><Skeleton className="h-4 w-24" /><Skeleton className="h-12 w-full" /></div>
+                <div className="space-y-3">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="flex gap-2">
+                      <Skeleton className="w-7 h-7 rounded-full shrink-0" />
+                      <div className="flex-1 space-y-1"><Skeleton className="h-3 w-20" /><Skeleton className="h-10 w-full" /></div>
                     </div>
                   ))}
                 </div>
-              ) : comments?.length === 0 ? (
-                <p className="text-sm font-medium text-muted-foreground text-center py-4">No comments yet. Start the conversation!</p>
+              ) : !comments?.length ? (
+                <p className="text-xs text-muted-foreground text-center py-2">No comments yet.</p>
               ) : (
-                <div className="space-y-6">
-                  {comments?.map(comment => (
-                    <div key={comment.id} className="flex gap-4">
-                      <Avatar className="w-8 h-8 rounded-none border border-border">
-                        <AvatarFallback className="bg-secondary text-xs font-bold rounded-none">{comment.authorName.charAt(0)}</AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 space-y-1">
-                        <div className="flex items-baseline justify-between">
-                          <span className="text-sm font-bold">{comment.authorName}</span>
-                          <span className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold">{format(new Date(comment.createdAt), 'MMM d, h:mm a')}</span>
-                        </div>
-                        <p className="text-sm leading-relaxed text-muted-foreground">{comment.text}</p>
+                comments.map((c) => (
+                  <div key={c.id} className="flex gap-3">
+                    <Avatar className="w-7 h-7 shrink-0 rounded-none border border-border">
+                      <AvatarFallback className="text-[10px] font-bold rounded-none bg-secondary">{c.authorName.charAt(0).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 space-y-0.5">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="text-xs font-bold">{c.authorName}</span>
+                        <span className="text-[9px] text-muted-foreground">{format(new Date(c.createdAt), 'MMM d')}</span>
                       </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">{c.text}</p>
                     </div>
-                  ))}
-                </div>
+                  </div>
+                ))
               )}
             </div>
 
             <div className="p-4 border-t border-border bg-secondary/10">
               <Form {...commentForm}>
-                <form onSubmit={commentForm.handleSubmit(onCommentSubmit)} className="space-y-3">
+                <form onSubmit={commentForm.handleSubmit(onCommentSubmit)} className="space-y-2">
                   <FormField
                     control={commentForm.control}
                     name="text"
                     render={({ field }) => (
                       <FormItem>
                         <FormControl>
-                          <Textarea 
-                            placeholder="Add a comment..." 
-                            className="min-h-[80px] resize-none text-sm bg-white rounded-none border-border"
+                          <Textarea
+                            placeholder="Add a comment..."
+                            className="min-h-[60px] resize-none text-xs rounded-none bg-white"
                             {...field}
                           />
                         </FormControl>
@@ -410,8 +538,8 @@ export default function PieceDetail() {
                     )}
                   />
                   <div className="flex justify-end">
-                    <Button type="submit" disabled={createComment.isPending} size="sm" className="font-semibold rounded-none bg-black text-white hover:bg-black/80">
-                      {createComment.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Post Comment'}
+                    <Button type="submit" size="sm" disabled={createComment.isPending} className="bg-black text-white rounded-none text-xs font-semibold">
+                      {createComment.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Post'}
                     </Button>
                   </div>
                 </form>

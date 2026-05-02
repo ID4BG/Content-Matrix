@@ -34,6 +34,7 @@ export const contentPiecesTable = pgTable("content_pieces", {
   mediaUrl: text("media_url"),
   mediaType: mediaTypeEnum("media_type"),
   status: contentPieceStatusEnum("status").notNull().default("empty"),
+  scheduledDate: timestamp("scheduled_date"),
   approvedAt: timestamp("approved_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

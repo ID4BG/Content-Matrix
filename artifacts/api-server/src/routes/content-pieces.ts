@@ -5,7 +5,7 @@ import {
   commentsTable,
   activityTable,
 } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 import {
   CreateContentPieceBody,
   UpdateContentPieceBody,
@@ -21,8 +21,12 @@ const router: IRouter = Router();
 router.get("/content-pieces", async (req, res) => {
   const params = ListContentPiecesQueryParams.parse(req.query);
 
-  const pieces = params.campaignId
-    ? await db.select().from(contentPiecesTable).where(eq(contentPiecesTable.campaignId, params.campaignId)).orderBy(sql`${contentPiecesTable.createdAt} asc`)
+  const conditions: ReturnType<typeof eq>[] = [];
+  if (params.campaignId) conditions.push(eq(contentPiecesTable.campaignId, params.campaignId));
+  if (params.channel) conditions.push(eq(contentPiecesTable.channel, params.channel as any));
+
+  const pieces = conditions.length
+    ? await db.select().from(contentPiecesTable).where(and(...conditions)).orderBy(sql`${contentPiecesTable.scheduledDate} asc nulls last, ${contentPiecesTable.createdAt} asc`)
     : await db.select().from(contentPiecesTable).orderBy(sql`${contentPiecesTable.createdAt} desc`);
 
   const commentCounts = await db
@@ -37,7 +41,18 @@ router.get("/content-pieces", async (req, res) => {
 
 router.post("/content-pieces", async (req, res) => {
   const body = CreateContentPieceBody.parse(req.body);
-  const [piece] = await db.insert(contentPiecesTable).values({ ...body, status: "uploaded" }).returning();
+  const insertData: any = {
+    campaignId: body.campaignId,
+    channel: body.channel,
+    title: body.title,
+    bodyText: body.bodyText ?? null,
+    mediaUrl: body.mediaUrl ?? null,
+    mediaType: body.mediaType ?? null,
+    status: "uploaded",
+  };
+  if (body.scheduledDate) insertData.scheduledDate = new Date(body.scheduledDate);
+
+  const [piece] = await db.insert(contentPiecesTable).values(insertData).returning();
 
   await db.insert(activityTable).values({
     type: "piece_uploaded",
@@ -66,9 +81,19 @@ router.patch("/content-pieces/:id", async (req, res) => {
   const { id } = UpdateContentPieceParams.parse(req.params);
   const body = UpdateContentPieceBody.parse(req.body);
 
+  const updateData: any = { updatedAt: new Date() };
+  if (body.title !== undefined) updateData.title = body.title;
+  if (body.bodyText !== undefined) updateData.bodyText = body.bodyText;
+  if (body.mediaUrl !== undefined) updateData.mediaUrl = body.mediaUrl;
+  if (body.mediaType !== undefined) updateData.mediaType = body.mediaType;
+  if (body.status !== undefined) updateData.status = body.status;
+  if (body.scheduledDate !== undefined) {
+    updateData.scheduledDate = body.scheduledDate ? new Date(body.scheduledDate) : null;
+  }
+
   const [updated] = await db
     .update(contentPiecesTable)
-    .set({ ...body, updatedAt: new Date() })
+    .set(updateData)
     .where(eq(contentPiecesTable.id, id))
     .returning();
 

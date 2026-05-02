@@ -152,6 +152,7 @@ export interface ContentPiece {
   bodyText?: string | null;
   mediaUrl?: string | null;
   mediaType?: ContentPieceMediaType;
+  scheduledDate?: string | null;
   status: ContentPieceStatus;
   commentCount: number;
   createdAt: string;
@@ -193,6 +194,7 @@ export interface CreateContentPieceBody {
   bodyText?: string | null;
   mediaUrl?: string | null;
   mediaType?: CreateContentPieceBodyMediaType;
+  scheduledDate?: string | null;
 }
 
 export type UpdateContentPieceBodyMediaType =
@@ -223,6 +225,7 @@ export interface UpdateContentPieceBody {
   bodyText?: string | null;
   mediaUrl?: string | null;
   mediaType?: UpdateContentPieceBodyMediaType;
+  scheduledDate?: string | null;
   status?: UpdateContentPieceBodyStatus;
 }
 
@@ -305,7 +308,23 @@ export type ListCampaignsParams = {
 
 export type ListContentPiecesParams = {
   campaignId?: number;
+  channel?: ListContentPiecesChannel;
 };
+
+export type ListContentPiecesChannel =
+  (typeof ListContentPiecesChannel)[keyof typeof ListContentPiecesChannel];
+
+export const ListContentPiecesChannel = {
+  instagram_reel: "instagram_reel",
+  linkedin_post: "linkedin_post",
+  youtube_long: "youtube_long",
+  youtube_short: "youtube_short",
+  facebook_carousel: "facebook_carousel",
+  facebook_group_post: "facebook_group_post",
+  reddit_post: "reddit_post",
+  threads_post: "threads_post",
+  source_article: "source_article",
+} as const;
 
 export type ListCommentsParams = {
   contentPieceId: number;

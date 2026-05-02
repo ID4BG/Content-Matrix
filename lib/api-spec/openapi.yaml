@@ -179,6 +179,12 @@ paths:
           required: false
           schema:
             type: integer
+        - name: channel
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [instagram_reel, linkedin_post, youtube_long, youtube_short, facebook_carousel, facebook_group_post, reddit_post, threads_post, source_article]
       responses:
         "200":
           description: List of content pieces
@@ -584,6 +590,10 @@ components:
           type: string
           enum: [image, video, carousel, text, article]
           nullable: true
+        scheduledDate:
+          type: string
+          format: date-time
+          nullable: true
         status:
           type: string
           enum: [empty, uploaded, in_review, approved, needs_revision]
@@ -621,6 +631,10 @@ components:
           type: string
           enum: [image, video, carousel, text, article]
           nullable: true
+        scheduledDate:
+          type: string
+          format: date-time
+          nullable: true
       required: [campaignId, channel, title]
 
     UpdateContentPieceBody:
@@ -637,6 +651,10 @@ components:
         mediaType:
           type: string
           enum: [image, video, carousel, text, article]
+          nullable: true
+        scheduledDate:
+          type: string
+          format: date-time
           nullable: true
         status:
           type: string

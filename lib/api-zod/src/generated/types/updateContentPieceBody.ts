@@ -13,5 +13,6 @@ export interface UpdateContentPieceBody {
   bodyText?: string | null;
   mediaUrl?: string | null;
   mediaType?: UpdateContentPieceBodyMediaType;
+  scheduledDate?: Date | null;
   status?: UpdateContentPieceBodyStatus;
 }

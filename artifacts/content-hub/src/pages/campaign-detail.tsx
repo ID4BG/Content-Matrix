@@ -1,61 +1,98 @@
 import { useRoute, Link, useLocation } from "wouter";
 import { format } from "date-fns";
-import { ArrowLeft, Loader2, CheckCircle2, Trash2, Clock, FileText, Plus, Edit2, CheckCircle } from "lucide-react";
+import {
+  ArrowLeft, Loader2, CheckCircle2, Trash2, Clock, Plus, Edit2, CheckCircle,
+  ImageIcon, Video, PlayCircle, Calendar, MoreHorizontal, Settings2
+} from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { 
-  useGetCampaign, 
-  getGetCampaignQueryKey,
-  useListContentPieces,
-  getListContentPiecesQueryKey,
-  useApproveCampaign,
-  useDeleteCampaign,
-  getListCampaignsQueryKey,
-  ContentPieceChannel,
-  CreateContentPieceBodyChannel,
-  useUpdateCampaign,
-  useUpdateCampaignChannels
+import {
+  useGetCampaign, getGetCampaignQueryKey,
+  useListContentPieces, getListContentPiecesQueryKey,
+  useApproveCampaign, useDeleteCampaign, getListCampaignsQueryKey,
+  ContentPieceChannel, CreateContentPieceBodyChannel,
+  useUpdateCampaign, useUpdateCampaignChannels, useCreateContentPiece, useDeleteContentPiece,
+  ContentPiece,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { StatusBadge, ChannelIcon, getChannelName } from "@/components/channel-icon";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { useCreateContentPiece } from "@workspace/api-client-react";
 import { useState, useEffect, useRef } from "react";
-import { Badge } from "@/components/ui/badge";
 
 const ALL_CHANNELS: ContentPieceChannel[] = [
-  "source_article",
-  "instagram_reel",
-  "linkedin_post",
-  "youtube_long",
-  "youtube_short",
-  "facebook_carousel",
-  "facebook_group_post",
-  "reddit_post",
-  "threads_post"
+  "source_article", "instagram_reel", "linkedin_post", "youtube_long",
+  "youtube_short", "facebook_carousel", "facebook_group_post", "reddit_post", "threads_post",
 ];
+
+function isYouTubeUrl(url: string) {
+  return /youtube\.com|youtu\.be/.test(url);
+}
+
+function getYouTubeThumbnail(url: string): string | null {
+  const match = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/);
+  return match ? `https://img.youtube.com/vi/${match[1]}/mqdefault.jpg` : null;
+}
+
+function PieceThumbnail({ piece }: { piece: ContentPiece }) {
+  const [imgError, setImgError] = useState(false);
+
+  if (piece.mediaUrl && piece.mediaType === "video" && isYouTubeUrl(piece.mediaUrl)) {
+    const thumb = getYouTubeThumbnail(piece.mediaUrl);
+    if (thumb && !imgError) {
+      return (
+        <div className="relative w-full aspect-video bg-black overflow-hidden">
+          <img src={thumb} alt="video thumbnail" className="w-full h-full object-cover" onError={() => setImgError(true)} />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-10 h-10 bg-black/70 rounded-full flex items-center justify-center">
+              <PlayCircle className="w-6 h-6 text-white" />
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
+
+  if (piece.mediaUrl && piece.mediaType === "image" && !imgError) {
+    return (
+      <div className="relative w-full aspect-video bg-secondary/20 overflow-hidden">
+        <img src={piece.mediaUrl} alt={piece.title} className="w-full h-full object-cover" onError={() => setImgError(true)} />
+      </div>
+    );
+  }
+
+  if (piece.mediaUrl && piece.mediaType === "video") {
+    return (
+      <div className="w-full aspect-video bg-black flex items-center justify-center">
+        <PlayCircle className="w-10 h-10 text-white/60" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full aspect-video bg-secondary/20 flex items-center justify-center">
+      {piece.mediaType === "image" ? (
+        <ImageIcon className="w-8 h-8 text-muted-foreground/40" />
+      ) : piece.mediaType === "video" ? (
+        <Video className="w-8 h-8 text-muted-foreground/40" />
+      ) : (
+        <div className="text-muted-foreground/30 text-xs font-mono text-center px-4 line-clamp-3">
+          {piece.bodyText || "No content"}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function CampaignDetail() {
   const [, params] = useRoute("/campaigns/:id");
@@ -65,7 +102,7 @@ export default function CampaignDetail() {
   const queryClient = useQueryClient();
 
   const { data: campaign, isLoading: isCampaignLoading } = useGetCampaign(id, {
-    query: { enabled: !!id, queryKey: getGetCampaignQueryKey(id) }
+    query: { enabled: !!id, queryKey: getGetCampaignQueryKey(id) },
   });
 
   const { data: pieces, isLoading: isPiecesLoading } = useListContentPieces(
@@ -78,15 +115,22 @@ export default function CampaignDetail() {
   const updateCampaign = useUpdateCampaign();
   const updateChannels = useUpdateCampaignChannels();
   const createContentPiece = useCreateContentPiece();
+  const deleteContentPiece = useDeleteContentPiece();
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState("");
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [editDescription, setEditDescription] = useState("");
-  
   const [isChannelsModalOpen, setIsChannelsModalOpen] = useState(false);
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
-  
+
+  // New piece dialog
+  const [newPieceChannel, setNewPieceChannel] = useState<ContentPieceChannel | null>(null);
+  const [newPieceTitle, setNewPieceTitle] = useState("");
+  const [newPieceCaption, setNewPieceCaption] = useState("");
+  const [newPieceDate, setNewPieceDate] = useState("");
+  const [newPieceMediaUrl, setNewPieceMediaUrl] = useState("");
+
   const initializedForId = useRef<number | null>(null);
 
   useEffect(() => {
@@ -99,121 +143,120 @@ export default function CampaignDetail() {
   }, [campaign, id]);
 
   const handleSaveTitle = () => {
-    if (editTitle.trim() === "") return;
+    if (!editTitle.trim()) return;
     setIsEditingTitle(false);
     if (editTitle === campaign?.title) return;
-
     updateCampaign.mutate(
       { id, data: { title: editTitle } },
-      {
-        onSuccess: (updated) => {
-          queryClient.setQueryData(getGetCampaignQueryKey(id), updated);
-          queryClient.invalidateQueries({ queryKey: getListCampaignsQueryKey() });
-        }
-      }
+      { onSuccess: (u) => queryClient.setQueryData(getGetCampaignQueryKey(id), u) }
     );
   };
 
   const handleSaveDescription = () => {
     setIsEditingDescription(false);
     if (editDescription === (campaign?.description || "")) return;
-
     updateCampaign.mutate(
       { id, data: { description: editDescription } },
-      {
-        onSuccess: (updated) => {
-          queryClient.setQueryData(getGetCampaignQueryKey(id), updated);
-          queryClient.invalidateQueries({ queryKey: getListCampaignsQueryKey() });
-        }
-      }
+      { onSuccess: (u) => queryClient.setQueryData(getGetCampaignQueryKey(id), u) }
     );
   };
 
   const handleSaveChannels = () => {
-    if (selectedChannels.length === 0) {
-      toast({ title: "Error", description: "Select at least one channel", variant: "destructive" });
+    if (!selectedChannels.length) {
+      toast({ title: "Select at least one channel", variant: "destructive" });
       return;
     }
-    
     updateChannels.mutate(
       { id, data: { channels: selectedChannels as any } },
       {
-        onSuccess: (updated) => {
-          queryClient.setQueryData(getGetCampaignQueryKey(id), updated);
+        onSuccess: (u) => {
+          queryClient.setQueryData(getGetCampaignQueryKey(id), u);
           setIsChannelsModalOpen(false);
-          toast({ title: "Channels Updated", description: "Campaign channels have been updated." });
-        }
+          toast({ title: "Channels updated" });
+        },
       }
     );
   };
 
   const handleApprove = () => {
-    approveCampaign.mutate(
-      { id },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetCampaignQueryKey(id) });
-          queryClient.invalidateQueries({ queryKey: getListCampaignsQueryKey() });
-          toast({
-            title: "Campaign Approved",
-            description: "The campaign has been marked as approved.",
-          });
-        }
-      }
-    );
+    approveCampaign.mutate({ id }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getGetCampaignQueryKey(id) });
+        queryClient.invalidateQueries({ queryKey: getListCampaignsQueryKey() });
+        toast({ title: "Campaign approved" });
+      },
+    });
   };
 
   const handleDelete = () => {
-    deleteCampaign.mutate(
-      { id },
+    deleteCampaign.mutate({ id }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListCampaignsQueryKey() });
+        setLocation("/dashboard");
+      },
+    });
+  };
+
+  const openNewPieceDialog = (channel: ContentPieceChannel) => {
+    setNewPieceChannel(channel);
+    setNewPieceTitle(`${getChannelName(channel)} — ${format(new Date(), 'MMM yyyy')}`);
+    setNewPieceCaption("");
+    setNewPieceDate("");
+    setNewPieceMediaUrl("");
+  };
+
+  const handleCreatePiece = () => {
+    if (!newPieceChannel) return;
+    createContentPiece.mutate(
       {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListCampaignsQueryKey() });
-          toast({
-            title: "Campaign Deleted",
-            description: "The campaign has been removed.",
-          });
-          setLocation("/");
-        }
+        data: {
+          campaignId: id,
+          channel: newPieceChannel as CreateContentPieceBodyChannel,
+          title: newPieceTitle || `${getChannelName(newPieceChannel)} Content`,
+          bodyText: newPieceCaption || undefined,
+          scheduledDate: newPieceDate ? new Date(newPieceDate).toISOString() : undefined,
+          mediaUrl: newPieceMediaUrl || undefined,
+          mediaType: newPieceMediaUrl
+            ? (isYouTubeUrl(newPieceMediaUrl) || newPieceMediaUrl.match(/\.(mp4|mov|webm|avi)$/i)) ? "video" : "image"
+            : undefined,
+        },
+      },
+      {
+        onSuccess: (piece) => {
+          queryClient.invalidateQueries({ queryKey: getListContentPiecesQueryKey({ campaignId: id }) });
+          setNewPieceChannel(null);
+          setLocation(`/campaigns/${id}/pieces/${piece.id}`);
+        },
+        onError: () => toast({ title: "Failed to create content piece", variant: "destructive" }),
       }
     );
   };
 
-  const handleCreatePiece = (channel: ContentPieceChannel) => {
-    createContentPiece.mutate(
-      { 
-        data: {
-          campaignId: id,
-          channel: channel as CreateContentPieceBodyChannel,
-          title: `${getChannelName(channel)} Content`
-        }
+  const handleDeletePiece = (e: React.MouseEvent, pieceId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    deleteContentPiece.mutate({ id: pieceId }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListContentPiecesQueryKey({ campaignId: id }) });
+        toast({ title: "Content piece deleted" });
       },
-      {
-        onSuccess: (newPiece) => {
-          queryClient.invalidateQueries({ queryKey: getListContentPiecesQueryKey({ campaignId: id }) });
-          setLocation(`/campaigns/${id}/pieces/${newPiece.id}`);
-        },
-        onError: () => {
-          toast({
-            title: "Error",
-            description: "Failed to create content piece.",
-            variant: "destructive"
-          });
-        }
-      }
-    );
+    });
   };
 
   if (isCampaignLoading) {
     return (
-      <div className="space-y-12">
-        <div className="space-y-4">
-          <Skeleton className="h-4 w-32" />
-          <Skeleton className="h-12 w-3/4 max-w-2xl" />
-          <Skeleton className="h-6 w-1/2 max-w-xl" />
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {Array(6).fill(0).map((_, i) => <Skeleton key={i} className="h-64" />)}
+      <div className="space-y-10">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-12 w-3/4" />
+        <div className="space-y-8">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="space-y-4">
+              <Skeleton className="h-6 w-40" />
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {[1, 2, 3].map((j) => <Skeleton key={j} className="aspect-video" />)}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -223,280 +266,350 @@ export default function CampaignDetail() {
     return (
       <div className="text-center py-24">
         <h2 className="text-2xl font-bold">Campaign not found</h2>
-        <Link href="/" className="text-primary mt-4 inline-block hover:underline">Return to dashboard</Link>
+        <Link href="/dashboard" className="text-primary mt-4 inline-block hover:underline">Return to dashboard</Link>
       </div>
     );
   }
 
   const activeChannels = campaign.channels || [];
+  const piecesByChannel = new Map<string, ContentPiece[]>();
+  for (const ch of activeChannels) piecesByChannel.set(ch, []);
+  for (const p of pieces || []) {
+    const arr = piecesByChannel.get(p.channel) ?? [];
+    arr.push(p);
+    piecesByChannel.set(p.channel, arr);
+  }
+
+  const totalPieces = pieces?.length ?? 0;
 
   return (
-    <div className="space-y-12">
-      <header className="flex flex-col md:flex-row md:items-start justify-between gap-8 pb-8 border-b border-border/50">
-        <div className="space-y-6 flex-1">
-          <Link href="/" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors group">
-            <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-            Back to Dashboard
-          </Link>
-          
-          <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-              {isEditingTitle ? (
-                <div className="flex items-center gap-2 max-w-2xl">
-                  <Input 
-                    value={editTitle}
-                    onChange={(e) => setEditTitle(e.target.value)}
-                    className="text-2xl font-bold py-6 px-4 bg-secondary/20 rounded-none border-border w-full"
-                    autoFocus
-                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveTitle(); if (e.key === 'Escape') { setIsEditingTitle(false); setEditTitle(campaign.title); } }}
-                    onBlur={handleSaveTitle}
-                  />
-                </div>
-              ) : (
-                <h1 
-                  className="text-4xl md:text-5xl font-bold tracking-tight hover:bg-secondary/30 p-2 -ml-2 rounded-sm cursor-text border border-transparent hover:border-border transition-colors group flex items-center gap-2"
-                  onClick={() => setIsEditingTitle(true)}
-                >
-                  {campaign.title}
-                  <Edit2 className="w-5 h-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                </h1>
-              )}
-              
-              <Badge variant="outline" className={`px-4 py-1.5 text-sm uppercase tracking-widest font-bold ${
-                campaign.status === 'in_review' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                campaign.status === 'approved' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                campaign.status === 'published' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                'bg-secondary text-secondary-foreground border-border'
-              }`}>
-                {campaign.status.replace('_', ' ')}
-              </Badge>
-            </div>
-            
+    <div className="space-y-10">
+      {/* Header */}
+      <header className="pb-8 border-b border-border/50">
+        <Link href="/dashboard" className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors group mb-6">
+          <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+          Back to Dashboard
+        </Link>
+
+        <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
+          <div className="flex-1 space-y-4">
+            {isEditingTitle ? (
+              <Input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                className="text-2xl font-bold rounded-none h-14 text-lg"
+                autoFocus
+                onKeyDown={(e) => { if (e.key === 'Enter') handleSaveTitle(); if (e.key === 'Escape') { setIsEditingTitle(false); setEditTitle(campaign.title); } }}
+                onBlur={handleSaveTitle}
+              />
+            ) : (
+              <h1
+                className="text-4xl font-bold tracking-tight cursor-text hover:bg-secondary/30 px-2 py-1 -ml-2 rounded-sm transition-colors group flex items-center gap-2"
+                onClick={() => setIsEditingTitle(true)}
+              >
+                {campaign.title}
+                <Edit2 className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+              </h1>
+            )}
+
             {isEditingDescription ? (
-              <div className="flex items-start gap-2 max-w-3xl">
-                <Input 
+              <div className="flex gap-2 items-start">
+                <Textarea
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
-                  className="text-lg bg-secondary/20 rounded-none border-border w-full"
+                  className="rounded-none text-sm max-w-2xl"
                   autoFocus
-                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveDescription(); if (e.key === 'Escape') { setIsEditingDescription(false); setEditDescription(campaign.description || ""); } }}
+                  rows={2}
                   onBlur={handleSaveDescription}
                 />
+                <Button size="sm" onClick={handleSaveDescription} className="bg-black text-white rounded-none shrink-0">Save</Button>
               </div>
             ) : (
-              <p 
-                className="text-muted-foreground text-lg max-w-3xl leading-relaxed hover:bg-secondary/30 p-2 -ml-2 rounded-sm cursor-text border border-transparent hover:border-border transition-colors group flex items-start gap-2 min-h-[40px]"
+              <p
+                className="text-muted-foreground cursor-text hover:bg-secondary/20 px-2 py-1 -ml-2 rounded-sm transition-colors min-h-[2rem] max-w-2xl group flex items-start gap-1"
                 onClick={() => setIsEditingDescription(true)}
               >
-                {campaign.description || <span className="italic opacity-50">Add a description...</span>}
-                <Edit2 className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity mt-1" />
+                {campaign.description || <span className="italic opacity-50 text-sm">Add description...</span>}
+                <Edit2 className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity mt-1 shrink-0" />
               </p>
             )}
-          </div>
-          
-          <div className="flex items-center gap-6 text-sm font-medium text-muted-foreground uppercase tracking-widest pt-2">
-            <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Created {format(new Date(campaign.createdAt), 'MMM d, yyyy')}
+
+            <div className="flex flex-wrap items-center gap-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              <StatusBadge status={campaign.status} />
+              <span className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" />
+                {format(new Date(campaign.createdAt), 'MMM d, yyyy')}
+              </span>
+              {campaign.approvedAt && (
+                <span className="flex items-center gap-1.5 text-emerald-600">
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  Approved {format(new Date(campaign.approvedAt), 'MMM d')}
+                </span>
+              )}
+              <span>{totalPieces} {totalPieces === 1 ? 'piece' : 'pieces'} · {activeChannels.length} {activeChannels.length === 1 ? 'channel' : 'channels'}</span>
             </div>
-            {campaign.approvedAt && (
-              <div className="flex items-center gap-2 text-blue-600">
-                <CheckCircle className="w-4 h-4" />
-                Approved {format(new Date(campaign.approvedAt), 'MMM d')}
-              </div>
-            )}
           </div>
-        </div>
 
-        <div className="flex items-center gap-3 shrink-0">
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" className="text-destructive hover:text-destructive hover:bg-destructive/10 rounded-none border-border">
-                <Trash2 className="w-4 h-4 mr-2" />
-                Delete
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent className="rounded-none border-border">
-              <AlertDialogHeader>
-                <AlertDialogTitle className="font-bold">Delete Campaign?</AlertDialogTitle>
-                <AlertDialogDescription className="text-base">
-                  This action cannot be undone. This will permanently delete this campaign
-                  and all of its content pieces.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel className="rounded-none font-semibold border-border">Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-none font-semibold">
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-
-          {campaign.status !== 'approved' && campaign.status !== 'published' && (
-            <Button 
-              onClick={handleApprove}
-              disabled={approveCampaign.isPending}
-              className="bg-blue-600 text-white hover:bg-blue-700 shadow-sm rounded-none font-semibold"
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsChannelsModalOpen(true)}
+              className="rounded-none gap-1.5 text-xs font-semibold uppercase tracking-wider"
             >
-              {approveCampaign.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-              Approve Campaign
+              <Settings2 className="w-3.5 h-3.5" />
+              Channels
             </Button>
-          )}
+
+            {campaign.status !== 'approved' && campaign.status !== 'published' && (
+              <Button
+                size="sm"
+                onClick={handleApprove}
+                disabled={approveCampaign.isPending}
+                className="bg-blue-600 hover:bg-blue-700 text-white rounded-none text-xs font-semibold uppercase tracking-wider gap-1.5"
+              >
+                {approveCampaign.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                Approve
+              </Button>
+            )}
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="sm" className="rounded-none text-muted-foreground hover:text-destructive gap-1.5">
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Campaign?</AlertDialogTitle>
+                  <AlertDialogDescription>This will permanently delete the campaign and all its content pieces.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleDelete} className="bg-destructive text-white">Delete</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </div>
       </header>
 
-      <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-bold tracking-tight">Content Pieces</h2>
-          <div className="flex items-center gap-4">
-            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">
-              {pieces?.length || 0} / {activeChannels.length} Pieces
-            </div>
-            
-            <Dialog open={isChannelsModalOpen} onOpenChange={setIsChannelsModalOpen}>
-              <DialogTrigger asChild>
-                <Button variant="outline" size="sm" className="rounded-none border-border text-xs font-semibold uppercase tracking-widest">
-                  Edit Channels
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="rounded-none border-border max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle className="font-bold text-xl">Manage Channels</DialogTitle>
-                  <DialogDescription className="text-base">
-                    Select which channels this campaign will be distributed to.
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
-                  {ALL_CHANNELS.map((channel) => (
-                    <div 
-                      key={channel} 
-                      className="flex items-center space-x-3 border border-border p-4 hover:bg-secondary/10 cursor-pointer transition-colors"
-                      onClick={() => {
-                        setSelectedChannels(prev => 
-                          prev.includes(channel) ? prev.filter(c => c !== channel) : [...prev, channel]
-                        );
-                      }}
-                    >
-                      <Checkbox 
-                        checked={selectedChannels.includes(channel)}
-                        onCheckedChange={(checked) => {
-                          setSelectedChannels(prev => 
-                            checked ? [...prev, channel] : prev.filter(c => c !== channel)
-                          );
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        className="rounded-none border-black"
-                      />
-                      <div className="flex items-center gap-2 font-medium w-full">
-                        <ChannelIcon channel={channel} className="w-4 h-4" />
-                        {getChannelName(channel)}
-                      </div>
+      {/* Channel Sections */}
+      {activeChannels.length === 0 ? (
+        <div className="text-center py-20 border border-dashed border-border/60">
+          <p className="text-muted-foreground mb-4">No channels selected for this campaign.</p>
+          <Button onClick={() => setIsChannelsModalOpen(true)} className="bg-black text-white rounded-none">Select Channels</Button>
+        </div>
+      ) : (
+        <div className="space-y-12">
+          {activeChannels.map((channel) => {
+            const chPieces = piecesByChannel.get(channel) ?? [];
+
+            return (
+              <section key={channel}>
+                <div className="flex items-center justify-between mb-5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 border border-border flex items-center justify-center">
+                      <ChannelIcon channel={channel as any} className="w-4 h-4" />
                     </div>
-                  ))}
-                </div>
-                
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsChannelsModalOpen(false)} className="rounded-none font-semibold">Cancel</Button>
-                  <Button onClick={handleSaveChannels} disabled={updateChannels.isPending} className="rounded-none font-semibold bg-black text-white hover:bg-black/80">
-                    {updateChannels.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Save Channels
+                    <div>
+                      <h2 className="font-bold text-base tracking-tight">{getChannelName(channel as any)}</h2>
+                      <p className="text-xs text-muted-foreground font-semibold uppercase tracking-widest">
+                        {chPieces.length} {chPieces.length === 1 ? 'piece' : 'pieces'}
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => openNewPieceDialog(channel as ContentPieceChannel)}
+                    className="rounded-none gap-1.5 text-xs font-semibold uppercase tracking-wider"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add
                   </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {isPiecesLoading ? (
-             Array(activeChannels.length || 3).fill(0).map((_, i) => <Skeleton key={i} className="h-64" />)
-          ) : activeChannels.length === 0 ? (
-            <div className="col-span-full py-16 text-center border border-dashed border-border bg-secondary/5">
-              <p className="text-lg font-semibold mb-2">No channels selected</p>
-              <p className="text-muted-foreground mb-4">You need to select channels to start creating content pieces.</p>
-              <Button onClick={() => setIsChannelsModalOpen(true)} className="rounded-none font-semibold bg-black text-white hover:bg-black/80">
-                Select Channels
-              </Button>
-            </div>
-          ) : (
-            activeChannels.map(channel => {
-              const piece = pieces?.find(p => p.channel === channel);
-              
-              if (piece) {
-                return (
-                  <Link key={channel} href={`/campaigns/${id}/pieces/${piece.id}`} className="group h-full">
-                    <div className="h-full border border-border bg-white hover:border-black transition-all duration-300 flex flex-col relative">
-                      <div className="p-4 border-b border-border bg-secondary/10 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <ChannelIcon channel={channel as any} className="w-4 h-4 text-foreground" />
-                          <span className="font-bold uppercase tracking-widest text-[10px]">{getChannelName(channel as any)}</span>
-                        </div>
-                        <Badge variant="outline" className={`text-[10px] uppercase tracking-widest rounded-none border-border bg-white ${
-                          piece.status === 'in_review' ? 'text-amber-600' :
-                          piece.status === 'approved' ? 'text-blue-600' :
-                          piece.status === 'needs_revision' ? 'text-rose-600' :
-                          'text-muted-foreground'
-                        }`}>
-                          {piece.status.replace('_', ' ')}
-                        </Badge>
-                      </div>
-                      <div className="p-6 flex-1 flex flex-col">
-                        <h3 className="font-bold text-lg mb-3 group-hover:underline decoration-2 underline-offset-4 line-clamp-2">
-                          {piece.title}
-                        </h3>
-                        {piece.bodyText ? (
-                          <p className="text-muted-foreground text-sm line-clamp-3 mb-4 flex-1">
-                            {piece.bodyText}
-                          </p>
-                        ) : (
-                          <div className="flex-1 flex items-center text-sm text-muted-foreground italic mb-4 opacity-50">
-                            No content written
-                          </div>
-                        )}
-                        
-                        <div className="flex items-center gap-4 text-[10px] font-bold text-muted-foreground uppercase tracking-widest pt-4 border-t border-border mt-auto">
-                          <span className="flex items-center gap-1.5">
-                            <FileText className="w-3 h-3" />
-                            {piece.mediaType ? 'Media attached' : 'Text only'}
-                          </span>
-                          <span>•</span>
-                          <span>{piece.commentCount} Comments</span>
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              }
-
-              return (
-                <div key={channel} className="h-full border border-dashed border-border bg-secondary/5 flex flex-col relative group cursor-pointer hover:border-black transition-colors" onClick={() => handleCreatePiece(channel as any)}>
-                  <div className="p-4 border-b border-dashed border-border flex items-center justify-between opacity-60 group-hover:opacity-100 transition-opacity">
-                    <div className="flex items-center gap-2">
-                      <ChannelIcon channel={channel as any} className="w-4 h-4 text-muted-foreground group-hover:text-black transition-colors" />
-                      <span className="font-bold uppercase tracking-widest text-[10px] text-muted-foreground group-hover:text-black transition-colors">{getChannelName(channel as any)}</span>
-                    </div>
-                    <Badge variant="outline" className="text-[10px] uppercase tracking-widest rounded-none border-border bg-white text-muted-foreground">Missing</Badge>
-                  </div>
-                  <div className="p-6 flex-1 flex flex-col items-center justify-center text-center gap-4 opacity-60 group-hover:opacity-100 transition-opacity">
-                    <div className="w-12 h-12 rounded-full border border-border flex items-center justify-center text-muted-foreground bg-white group-hover:border-black group-hover:text-black transition-colors">
-                      {createContentPiece.isPending && createContentPiece.variables?.data.channel === channel ? (
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                      ) : (
-                        <Plus className="w-5 h-5" />
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      <h4 className="font-bold text-sm">Add {getChannelName(channel as any)}</h4>
-                    </div>
-                  </div>
                 </div>
-              );
-            })
-          )}
+
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+                  {isPiecesLoading ? (
+                    [1, 2, 3].map((i) => <Skeleton key={i} className="aspect-video" />)
+                  ) : chPieces.length === 0 ? (
+                    <button
+                      onClick={() => openNewPieceDialog(channel as ContentPieceChannel)}
+                      className="col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-5 aspect-[4/1] border border-dashed border-border/60 hover:border-black transition-colors flex items-center justify-center gap-3 text-muted-foreground hover:text-black group"
+                    >
+                      <Plus className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                      <span className="text-sm font-semibold">Add first content piece</span>
+                    </button>
+                  ) : (
+                    <>
+                      {chPieces.map((piece) => (
+                        <Link key={piece.id} href={`/campaigns/${id}/pieces/${piece.id}`}>
+                          <div className="group border border-border/80 hover:border-black hover:shadow-md transition-all duration-200 bg-white overflow-hidden cursor-pointer">
+                            {/* Thumbnail */}
+                            <PieceThumbnail piece={piece} />
+
+                            {/* Info */}
+                            <div className="p-3 space-y-2">
+                              {piece.scheduledDate && (
+                                <div className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                                  <Calendar className="w-3 h-3" />
+                                  {format(new Date(piece.scheduledDate), 'MMM d, yyyy')}
+                                </div>
+                              )}
+                              <p className="text-xs font-semibold line-clamp-2 leading-tight group-hover:text-black transition-colors">
+                                {piece.title}
+                              </p>
+                              {piece.bodyText && (
+                                <p className="text-[11px] text-muted-foreground line-clamp-2 leading-tight">
+                                  {piece.bodyText}
+                                </p>
+                              )}
+                              <div className="flex items-center justify-between pt-1">
+                                <StatusBadge status={piece.status} />
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <button
+                                      onClick={(e) => e.stopPropagation()}
+                                      className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:text-destructive text-muted-foreground"
+                                    >
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Delete this piece?</AlertDialogTitle>
+                                      <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction onClick={(e) => handleDeletePiece(e, piece.id)} className="bg-destructive text-white">Delete</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </div>
+                            </div>
+                          </div>
+                        </Link>
+                      ))}
+                      {/* Add more button */}
+                      <button
+                        onClick={() => openNewPieceDialog(channel as ContentPieceChannel)}
+                        className="border border-dashed border-border/60 hover:border-black transition-colors flex items-center justify-center aspect-video text-muted-foreground hover:text-black group"
+                      >
+                        <Plus className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </section>
+            );
+          })}
         </div>
-      </div>
+      )}
+
+      {/* Edit Channels Modal */}
+      <Dialog open={isChannelsModalOpen} onOpenChange={setIsChannelsModalOpen}>
+        <DialogContent className="rounded-none sm:rounded-none max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Manage Channels</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-4">
+            {ALL_CHANNELS.map((ch) => (
+              <div
+                key={ch}
+                className="flex items-center gap-3 border border-border p-3 cursor-pointer hover:bg-secondary/10 transition-colors"
+                onClick={() => setSelectedChannels((prev) =>
+                  prev.includes(ch) ? prev.filter((c) => c !== ch) : [...prev, ch]
+                )}
+              >
+                <Checkbox
+                  checked={selectedChannels.includes(ch)}
+                  className="rounded-none"
+                  onClick={(e) => e.stopPropagation()}
+                  onCheckedChange={(checked) => setSelectedChannels((prev) =>
+                    checked ? [...prev, ch] : prev.filter((c) => c !== ch)
+                  )}
+                />
+                <div className="flex items-center gap-2 font-medium text-sm">
+                  <ChannelIcon channel={ch} className="w-4 h-4" />
+                  {getChannelName(ch)}
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setIsChannelsModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveChannels} disabled={updateChannels.isPending} className="bg-black text-white rounded-none">
+              {updateChannels.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Piece Dialog */}
+      <Dialog open={!!newPieceChannel} onOpenChange={(open) => !open && setNewPieceChannel(null)}>
+        <DialogContent className="rounded-none sm:rounded-none max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {newPieceChannel && <ChannelIcon channel={newPieceChannel} className="w-4 h-4" />}
+              New {newPieceChannel ? getChannelName(newPieceChannel) : ''} Piece
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-5 py-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Title</label>
+              <Input
+                value={newPieceTitle}
+                onChange={(e) => setNewPieceTitle(e.target.value)}
+                className="rounded-none"
+                placeholder="e.g. Week 1 Instagram Reel"
+                autoFocus
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Caption / Body</label>
+              <Textarea
+                value={newPieceCaption}
+                onChange={(e) => setNewPieceCaption(e.target.value)}
+                className="rounded-none min-h-[80px] resize-none"
+                placeholder="Write the caption or body text..."
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Scheduled Date</label>
+              <Input
+                type="date"
+                value={newPieceDate}
+                onChange={(e) => setNewPieceDate(e.target.value)}
+                className="rounded-none"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Media URL (YouTube, image URL, etc.)</label>
+              <Input
+                value={newPieceMediaUrl}
+                onChange={(e) => setNewPieceMediaUrl(e.target.value)}
+                className="rounded-none font-mono text-sm"
+                placeholder="https://youtube.com/watch?v=... or image URL"
+              />
+              <p className="text-[11px] text-muted-foreground">You can also upload media after creating the piece.</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setNewPieceChannel(null)}>Cancel</Button>
+            <Button
+              onClick={handleCreatePiece}
+              disabled={createContentPiece.isPending || !newPieceTitle.trim()}
+              className="bg-black text-white rounded-none"
+            >
+              {createContentPiece.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+              Create & Open
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

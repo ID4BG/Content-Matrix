@@ -17,6 +17,7 @@ export interface ContentPiece {
   bodyText?: string | null;
   mediaUrl?: string | null;
   mediaType?: ContentPieceMediaType;
+  scheduledDate?: Date | null;
   status: ContentPieceStatus;
   commentCount: number;
   createdAt: Date;

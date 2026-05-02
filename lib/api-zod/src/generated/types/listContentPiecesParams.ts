@@ -5,7 +5,9 @@
  * Content Matrix API
  * OpenAPI spec version: 0.1.0
  */
+import type { ListContentPiecesChannel } from "./listContentPiecesChannel";
 
 export type ListContentPiecesParams = {
   campaignId?: number;
+  channel?: ListContentPiecesChannel;
 };

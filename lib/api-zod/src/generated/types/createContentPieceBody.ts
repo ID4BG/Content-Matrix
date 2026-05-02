@@ -15,4 +15,5 @@ export interface CreateContentPieceBody {
   bodyText?: string | null;
   mediaUrl?: string | null;
   mediaType?: CreateContentPieceBodyMediaType;
+  scheduledDate?: Date | null;
 }

@@ -29,6 +29,7 @@ export * from "./folder";
 export * from "./healthStatus";
 export * from "./listCampaignsParams";
 export * from "./listCommentsParams";
+export * from "./listContentPiecesChannel";
 export * from "./listContentPiecesParams";
 export * from "./sharedFolderView";
 export * from "./updateCampaignBody";
