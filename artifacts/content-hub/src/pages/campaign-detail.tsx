@@ -2,7 +2,7 @@ import { useRoute, Link, useLocation } from "wouter";
 import { format } from "date-fns";
 import {
   ArrowLeft, Loader2, CheckCircle2, Trash2, Clock, Plus, Edit2, CheckCircle,
-  Settings2, UserPlus, X, ChevronRight, FolderOpen, Crown, Briefcase, User, CalendarDays, KanbanSquare,
+  Settings2, UserPlus, X, ChevronRight, FolderOpen, Crown, Briefcase, User, CalendarDays, KanbanSquare, Share2, Copy, Check,
 } from "lucide-react";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import {
@@ -10,7 +10,7 @@ import {
   useListContentPieces, getListContentPiecesQueryKey,
   useListFolders,
   useApproveCampaign, useDisapproveCampaign, useDeleteCampaign, getListCampaignsQueryKey,
-  useUpdateCampaign, useUpdateCampaignChannels,
+  useUpdateCampaign, useUpdateCampaignChannels, useShareCampaignLink,
   ContentPieceChannel,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
@@ -160,6 +160,7 @@ export default function CampaignDetail() {
   const deleteCampaign = useDeleteCampaign();
   const updateCampaign = useUpdateCampaign();
   const updateChannels = useUpdateCampaignChannels();
+  const shareCampaign = useShareCampaignLink();
 
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState("");
@@ -174,6 +175,7 @@ export default function CampaignDetail() {
   const [inviteRole, setInviteRole] = useState<MemberRole>("team_member");
   const [invitePermissions, setInvitePermissions] = useState<string[]>(DEFAULT_PERMISSIONS.team_member);
 
+  const [copied, setCopied] = useState(false);
   const [editingMemberId, setEditingMemberId] = useState<number | null>(null);
   const [editMemberFirstName, setEditMemberFirstName] = useState("");
   const [editMemberLastName, setEditMemberLastName] = useState("");
@@ -415,6 +417,48 @@ export default function CampaignDetail() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            {/* Share button */}
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={shareCampaign.isPending}
+              onClick={() => {
+                const existingToken = campaign?.shareToken;
+                if (existingToken) {
+                  const url = `${window.location.origin}/shared/campaign/${existingToken}`;
+                  navigator.clipboard.writeText(url).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                    toast({ title: "Link copied!", description: "Share link copied to clipboard." });
+                  });
+                } else {
+                  shareCampaign.mutate({ id }, {
+                    onSuccess: (data) => {
+                      queryClient.invalidateQueries({ queryKey: getGetCampaignQueryKey(id) });
+                      const url = `${window.location.origin}/shared/campaign/${data.shareToken}`;
+                      navigator.clipboard.writeText(url).then(() => {
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      });
+                      toast({ title: "Share link created!", description: "Link copied to clipboard. Anyone with it can view approved pieces." });
+                    },
+                    onError: () => toast({ title: "Failed to generate share link", variant: "destructive" }),
+                  });
+                }
+              }}
+              className="rounded-none gap-1.5 text-xs font-semibold uppercase tracking-wider"
+            >
+              {shareCampaign.isPending ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : copied ? (
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+              ) : campaign?.shareToken ? (
+                <Copy className="w-3.5 h-3.5" />
+              ) : (
+                <Share2 className="w-3.5 h-3.5" />
+              )}
+              {copied ? "Copied!" : campaign?.shareToken ? "Copy Link" : "Share"}
+            </Button>
             <Link
               href={`/campaigns/${id}/pipeline`}
               className="inline-flex items-center gap-1.5 border border-border bg-white hover:bg-secondary/50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors"

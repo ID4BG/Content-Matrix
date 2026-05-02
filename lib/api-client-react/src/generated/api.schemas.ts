@@ -48,6 +48,7 @@ export interface Campaign {
   updatedAt: string;
   contentPieceCount: number;
   approvedAt?: string | null;
+  shareToken?: string | null;
 }
 
 export type CreateCampaignBodyChannelsItem =
@@ -334,6 +335,11 @@ export interface UpdateFolderBody {
   title?: string;
   parentFolderName?: string | null;
   description?: string | null;
+}
+
+export interface SharedCampaignView {
+  campaign: Campaign;
+  pieces: ContentPiece[];
 }
 
 export interface SharedFolderView {

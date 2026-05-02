@@ -19,6 +19,7 @@ import PieceDetail from "@/pages/piece-detail";
 import FolderList from "@/pages/folder-list";
 import FolderDetail from "@/pages/folder-detail";
 import SharedFolder from "@/pages/shared-folder";
+import SharedCampaign from "@/pages/shared-campaign";
 import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/landing";
@@ -103,6 +104,7 @@ function Router() {
       <Route path="/settings"><PrivateRoute component={Settings} /></Route>
 
       <Route path="/shared/folder/:token" component={SharedFolder} />
+      <Route path="/shared/campaign/:token" component={SharedCampaign} />
 
       <Route component={NotFound} />
     </Switch>

@@ -47,6 +47,7 @@ export const ListCampaignsResponseItem = zod.object({
   updatedAt: zod.coerce.date(),
   contentPieceCount: zod.number(),
   approvedAt: zod.coerce.date().nullish(),
+  shareToken: zod.string().nullish(),
 });
 export const ListCampaignsResponse = zod.array(ListCampaignsResponseItem);
 
@@ -109,6 +110,7 @@ export const GetCampaignResponse = zod.object({
   updatedAt: zod.coerce.date(),
   contentPieceCount: zod.number(),
   approvedAt: zod.coerce.date().nullish(),
+  shareToken: zod.string().nullish(),
 });
 
 /**
@@ -151,6 +153,7 @@ export const UpdateCampaignResponse = zod.object({
   updatedAt: zod.coerce.date(),
   contentPieceCount: zod.number(),
   approvedAt: zod.coerce.date().nullish(),
+  shareToken: zod.string().nullish(),
 });
 
 /**
@@ -193,6 +196,7 @@ export const ApproveCampaignResponse = zod.object({
   updatedAt: zod.coerce.date(),
   contentPieceCount: zod.number(),
   approvedAt: zod.coerce.date().nullish(),
+  shareToken: zod.string().nullish(),
 });
 
 /**
@@ -228,6 +232,7 @@ export const DisapproveCampaignResponse = zod.object({
   updatedAt: zod.coerce.date(),
   contentPieceCount: zod.number(),
   approvedAt: zod.coerce.date().nullish(),
+  shareToken: zod.string().nullish(),
 });
 
 /**
@@ -281,6 +286,7 @@ export const UpdateCampaignChannelsResponse = zod.object({
   updatedAt: zod.coerce.date(),
   contentPieceCount: zod.number(),
   approvedAt: zod.coerce.date().nullish(),
+  shareToken: zod.string().nullish(),
 });
 
 /**
@@ -792,6 +798,117 @@ export const ShareFolderLinkResponse = zod.object({
 });
 
 /**
+ * @summary Generate a public share link for a campaign
+ */
+export const ShareCampaignLinkParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ShareCampaignLinkResponse = zod.object({
+  id: zod.number(),
+  userId: zod.string(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  status: zod.enum(["draft", "in_review", "approved", "published"]),
+  folderId: zod.number().nullish(),
+  channels: zod.array(
+    zod.enum([
+      "instagram_reel",
+      "tiktok_post",
+      "x_post",
+      "linkedin_post",
+      "youtube_long",
+      "youtube_short",
+      "facebook_carousel",
+      "facebook_group_post",
+      "reddit_post",
+      "threads_post",
+      "source_article",
+    ]),
+  ),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  contentPieceCount: zod.number(),
+  approvedAt: zod.coerce.date().nullish(),
+  shareToken: zod.string().nullish(),
+});
+
+/**
+ * @summary Get a shared campaign and its approved pieces by token (public)
+ */
+export const GetSharedCampaignParams = zod.object({
+  token: zod.coerce.string(),
+});
+
+export const GetSharedCampaignResponse = zod.object({
+  campaign: zod.object({
+    id: zod.number(),
+    userId: zod.string(),
+    title: zod.string(),
+    description: zod.string().nullish(),
+    status: zod.enum(["draft", "in_review", "approved", "published"]),
+    folderId: zod.number().nullish(),
+    channels: zod.array(
+      zod.enum([
+        "instagram_reel",
+        "tiktok_post",
+        "x_post",
+        "linkedin_post",
+        "youtube_long",
+        "youtube_short",
+        "facebook_carousel",
+        "facebook_group_post",
+        "reddit_post",
+        "threads_post",
+        "source_article",
+      ]),
+    ),
+    createdAt: zod.coerce.date(),
+    updatedAt: zod.coerce.date(),
+    contentPieceCount: zod.number(),
+    approvedAt: zod.coerce.date().nullish(),
+    shareToken: zod.string().nullish(),
+  }),
+  pieces: zod.array(
+    zod.object({
+      id: zod.number(),
+      campaignId: zod.number(),
+      channel: zod.enum([
+        "instagram_reel",
+        "tiktok_post",
+        "x_post",
+        "linkedin_post",
+        "youtube_long",
+        "youtube_short",
+        "facebook_carousel",
+        "facebook_group_post",
+        "reddit_post",
+        "threads_post",
+        "source_article",
+      ]),
+      title: zod.string(),
+      bodyText: zod.string().nullish(),
+      mediaUrl: zod.string().nullish(),
+      mediaType: zod
+        .enum(["image", "video", "carousel", "text", "article"])
+        .nullish(),
+      scheduledDate: zod.coerce.date().nullish(),
+      status: zod.enum([
+        "empty",
+        "uploaded",
+        "in_review",
+        "approved",
+        "needs_revision",
+      ]),
+      commentCount: zod.number(),
+      createdAt: zod.coerce.date(),
+      updatedAt: zod.coerce.date(),
+      approvedAt: zod.coerce.date().nullish(),
+    }),
+  ),
+});
+
+/**
  * @summary Get a shared folder and its campaigns by token (public)
  */
 export const GetSharedFolderParams = zod.object({
@@ -837,6 +954,7 @@ export const GetSharedFolderResponse = zod.object({
       updatedAt: zod.coerce.date(),
       contentPieceCount: zod.number(),
       approvedAt: zod.coerce.date().nullish(),
+      shareToken: zod.string().nullish(),
     }),
   ),
 });

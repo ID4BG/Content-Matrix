@@ -20,4 +20,5 @@ export interface Campaign {
   updatedAt: Date;
   contentPieceCount: number;
   approvedAt?: Date | null;
+  shareToken?: string | null;
 }

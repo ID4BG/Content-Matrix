@@ -585,6 +585,46 @@ paths:
               schema:
                 $ref: "#/components/schemas/Folder"
 
+  /campaigns/{id}/share:
+    post:
+      operationId: shareCampaignLink
+      tags: [campaigns]
+      summary: Generate a public share link for a campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Campaign with share token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+
+  /shared/campaign/{token}:
+    get:
+      operationId: getSharedCampaign
+      tags: [sharing]
+      summary: Get a shared campaign and its approved pieces by token (public)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shared campaign with approved content pieces
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharedCampaignView"
+        "404":
+          description: Not found or token invalid
+
   /shared/folder/{token}:
     get:
       operationId: getSharedFolder
@@ -677,6 +717,9 @@ components:
         approvedAt:
           type: string
           format: date-time
+          nullable: true
+        shareToken:
+          type: string
           nullable: true
       required: [id, userId, title, status, channels, createdAt, updatedAt, contentPieceCount]
 
@@ -964,6 +1007,17 @@ components:
         description:
           type: string
           nullable: true
+
+    SharedCampaignView:
+      type: object
+      properties:
+        campaign:
+          $ref: "#/components/schemas/Campaign"
+        pieces:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContentPiece"
+      required: [campaign, pieces]
 
     SharedFolderView:
       type: object

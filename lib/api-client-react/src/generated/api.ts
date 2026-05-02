@@ -33,6 +33,7 @@ import type {
   ListCampaignsParams,
   ListCommentsParams,
   ListContentPiecesParams,
+  SharedCampaignView,
   SharedFolderView,
   SubmitForReviewBody,
   UpdateCampaignBody,
@@ -2543,6 +2544,178 @@ export const useShareFolderLink = <
 > => {
   return useMutation(getShareFolderLinkMutationOptions(options));
 };
+
+/**
+ * @summary Generate a public share link for a campaign
+ */
+export const getShareCampaignLinkUrl = (id: number) => {
+  return `/api/campaigns/${id}/share`;
+};
+
+export const shareCampaignLink = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Campaign> => {
+  return customFetch<Campaign>(getShareCampaignLinkUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getShareCampaignLinkMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof shareCampaignLink>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof shareCampaignLink>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["shareCampaignLink"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof shareCampaignLink>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return shareCampaignLink(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type ShareCampaignLinkMutationResult = NonNullable<
+  Awaited<ReturnType<typeof shareCampaignLink>>
+>;
+
+export type ShareCampaignLinkMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Generate a public share link for a campaign
+ */
+export const useShareCampaignLink = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof shareCampaignLink>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof shareCampaignLink>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getShareCampaignLinkMutationOptions(options));
+};
+
+/**
+ * @summary Get a shared campaign and its approved pieces by token (public)
+ */
+export const getGetSharedCampaignUrl = (token: string) => {
+  return `/api/shared/campaign/${token}`;
+};
+
+export const getSharedCampaign = async (
+  token: string,
+  options?: RequestInit,
+): Promise<SharedCampaignView> => {
+  return customFetch<SharedCampaignView>(getGetSharedCampaignUrl(token), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getGetSharedCampaignQueryKey = (token: string) => {
+  return [`/api/shared/campaign/${token}`] as const;
+};
+
+export const getGetSharedCampaignQueryOptions = <
+  TData = Awaited<ReturnType<typeof getSharedCampaign>>,
+  TError = ErrorType<void>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSharedCampaign>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getGetSharedCampaignQueryKey(token);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof getSharedCampaign>>
+  > = ({ signal }) => getSharedCampaign(token, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!token,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof getSharedCampaign>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type GetSharedCampaignQueryResult = NonNullable<
+  Awaited<ReturnType<typeof getSharedCampaign>>
+>;
+export type GetSharedCampaignQueryError = ErrorType<void>;
+
+/**
+ * @summary Get a shared campaign and its approved pieces by token (public)
+ */
+
+export function useGetSharedCampaign<
+  TData = Awaited<ReturnType<typeof getSharedCampaign>>,
+  TError = ErrorType<void>,
+>(
+  token: string,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof getSharedCampaign>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetSharedCampaignQueryOptions(token, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
 
 /**
  * @summary Get a shared folder and its campaigns by token (public)

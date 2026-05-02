@@ -6,6 +6,7 @@ import {
   activityTable,
 } from "@workspace/db";
 import { eq, sql, and } from "drizzle-orm";
+import { randomBytes } from "crypto";
 import {
   CreateCampaignBody,
   UpdateCampaignBody,
@@ -16,6 +17,8 @@ import {
   UpdateCampaignChannelsBody,
   UpdateCampaignChannelsParams,
   ListCampaignsQueryParams,
+  ShareCampaignLinkParams,
+  GetSharedCampaignParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 
@@ -147,6 +150,42 @@ router.post("/campaigns/:id/disapprove", requireAuth, async (req, res) => {
 
   if (!updated) return res.status(404).json({ error: "Campaign not found" });
   res.json(withCount(updated, await getPieceCount(id)));
+});
+
+router.post("/campaigns/:id/share", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
+  const { id } = ShareCampaignLinkParams.parse(req.params);
+
+  const token = randomBytes(16).toString("hex");
+
+  const [updated] = await db
+    .update(campaignsTable)
+    .set({ shareToken: token, updatedAt: new Date() })
+    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.userId, userId)))
+    .returning();
+
+  if (!updated) return res.status(404).json({ error: "Campaign not found" });
+  res.json(withCount(updated, await getPieceCount(id)));
+});
+
+router.get("/shared/campaign/:token", async (req, res) => {
+  const { token } = GetSharedCampaignParams.parse(req.params);
+
+  const [campaign] = await db
+    .select()
+    .from(campaignsTable)
+    .where(eq(campaignsTable.shareToken, token));
+
+  if (!campaign) return res.status(404).json({ error: "Shared campaign not found" });
+
+  const pieces = await db
+    .select()
+    .from(contentPiecesTable)
+    .where(and(eq(contentPiecesTable.campaignId, campaign.id), eq(contentPiecesTable.status, "approved")))
+    .orderBy(contentPiecesTable.channel);
+
+  const count = await getPieceCount(campaign.id);
+  res.json({ campaign: withCount(campaign, count), pieces });
 });
 
 router.patch("/campaigns/:id/channels", requireAuth, async (req, res) => {

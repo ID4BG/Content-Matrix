@@ -35,6 +35,7 @@ export * from "./listCampaignsParams";
 export * from "./listCommentsParams";
 export * from "./listContentPiecesChannel";
 export * from "./listContentPiecesParams";
+export * from "./sharedCampaignView";
 export * from "./sharedFolderView";
 export * from "./submitForReviewBody";
 export * from "./updateCampaignBody";
