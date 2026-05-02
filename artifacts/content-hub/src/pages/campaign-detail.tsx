@@ -2,7 +2,7 @@ import { useRoute, Link, useLocation } from "wouter";
 import { format } from "date-fns";
 import {
   ArrowLeft, Loader2, CheckCircle2, Trash2, Clock, Plus, Edit2, CheckCircle,
-  Settings2, UserPlus, X, ChevronRight, FolderOpen, Crown, Briefcase, User,
+  Settings2, UserPlus, X, ChevronRight, FolderOpen, Crown, Briefcase, User, CalendarDays,
 } from "lucide-react";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import {
@@ -415,6 +415,13 @@ export default function CampaignDetail() {
           </div>
 
           <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            <Link
+              href={`/campaigns/${id}/calendar`}
+              className="inline-flex items-center gap-1.5 border border-border bg-white hover:bg-secondary/50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors"
+            >
+              <CalendarDays className="w-3.5 h-3.5" />
+              Calendar
+            </Link>
             <Button variant="outline" size="sm" onClick={() => setIsInviteOpen(true)} className="rounded-none gap-1.5 text-xs font-semibold uppercase tracking-wider">
               <UserPlus className="w-3.5 h-3.5" />
               Add Member

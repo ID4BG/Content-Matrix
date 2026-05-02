@@ -176,6 +176,8 @@ export type ContentPieceChannel =
 
 export const ContentPieceChannel = {
   instagram_reel: "instagram_reel",
+  tiktok_post: "tiktok_post",
+  x_post: "x_post",
   linkedin_post: "linkedin_post",
   youtube_long: "youtube_long",
   youtube_short: "youtube_short",
@@ -230,6 +232,8 @@ export type CreateContentPieceBodyChannel =
 
 export const CreateContentPieceBodyChannel = {
   instagram_reel: "instagram_reel",
+  tiktok_post: "tiktok_post",
+  x_post: "x_post",
   linkedin_post: "linkedin_post",
   youtube_long: "youtube_long",
   youtube_short: "youtube_short",

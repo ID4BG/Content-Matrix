@@ -33,11 +33,14 @@ export default function Settings() {
     if (!user) return;
     setIsSavingName(true);
     try {
-      await user.update({ firstName: editFirstName.trim(), lastName: editLastName.trim() });
+      await user.update({ firstName: editFirstName.trim() || undefined, lastName: editLastName.trim() || undefined });
       toast({ title: "Display name updated" });
       setIsEditingName(false);
-    } catch {
-      toast({ title: "Failed to update name", variant: "destructive" });
+    } catch (err: unknown) {
+      const msg = (err as { message?: string; errors?: { message?: string }[] })?.errors?.[0]?.message
+        || (err as { message?: string })?.message
+        || "Failed to update name";
+      toast({ title: "Could not update name", description: msg, variant: "destructive" });
     } finally {
       setIsSavingName(false);
     }
@@ -117,7 +120,7 @@ export default function Settings() {
                     />
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center flex-wrap">
                   <Button
                     size="sm"
                     onClick={handleSaveName}
@@ -131,6 +134,11 @@ export default function Settings() {
                     Cancel
                   </Button>
                 </div>
+                {user?.externalAccounts && user.externalAccounts.length > 0 && (
+                  <p className="text-[10px] text-muted-foreground">
+                    Signed in with {user.externalAccounts[0]?.provider ?? "an external account"}. If saving fails, your name may be controlled by your connected account.
+                  </p>
+                )}
               </div>
             ) : (
               <div className="flex items-center justify-between">
@@ -187,8 +195,12 @@ export default function Settings() {
       <section className="space-y-4">
         <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">About</h2>
         <div className="border border-border bg-white p-6 space-y-3">
-          <div className="flex items-center gap-3 mb-4 border-b border-border/50 pb-4 bg-black p-3 -mx-2">
-            <img src="/logo-full.png" alt="Content Matrix" className="h-9 w-auto object-contain" />
+          <div className="bg-black overflow-hidden -mx-6 -mt-6 mb-4" style={{ height: '64px' }}>
+            <img
+              src="/logo-full.png"
+              alt="Content Matrix"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center center' }}
+            />
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed font-medium">
             A multi-user content distribution platform. Create campaigns, manage content across channels, and share folders with collaborators.

@@ -17,9 +17,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-[100dvh] bg-background flex flex-col md:flex-row">
       <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-border bg-white shrink-0 flex flex-col h-auto md:h-[100dvh] md:sticky md:top-0">
-        <div className="flex items-center justify-between md:block bg-black px-5 py-4">
-          <Link href="/dashboard" className="flex items-center group outline-none">
-            <img src="/logo-full.png" alt="Content Matrix" className="h-10 w-auto object-contain" />
+        <div className="bg-black overflow-hidden" style={{ height: '72px' }}>
+          <Link href="/dashboard" className="block w-full h-full outline-none">
+            <img
+              src="/logo-full.png"
+              alt="Content Matrix"
+              style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center center' }}
+            />
           </Link>
         </div>
         

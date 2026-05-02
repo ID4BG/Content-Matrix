@@ -382,6 +382,8 @@ export const ListContentPiecesResponseItem = zod.object({
   campaignId: zod.number(),
   channel: zod.enum([
     "instagram_reel",
+    "tiktok_post",
+    "x_post",
     "linkedin_post",
     "youtube_long",
     "youtube_short",
@@ -421,6 +423,8 @@ export const CreateContentPieceBody = zod.object({
   campaignId: zod.number(),
   channel: zod.enum([
     "instagram_reel",
+    "tiktok_post",
+    "x_post",
     "linkedin_post",
     "youtube_long",
     "youtube_short",
@@ -451,6 +455,8 @@ export const GetContentPieceResponse = zod.object({
   campaignId: zod.number(),
   channel: zod.enum([
     "instagram_reel",
+    "tiktok_post",
+    "x_post",
     "linkedin_post",
     "youtube_long",
     "youtube_short",
@@ -505,6 +511,8 @@ export const UpdateContentPieceResponse = zod.object({
   campaignId: zod.number(),
   channel: zod.enum([
     "instagram_reel",
+    "tiktok_post",
+    "x_post",
     "linkedin_post",
     "youtube_long",
     "youtube_short",
@@ -553,6 +561,8 @@ export const ApproveContentPieceResponse = zod.object({
   campaignId: zod.number(),
   channel: zod.enum([
     "instagram_reel",
+    "tiktok_post",
+    "x_post",
     "linkedin_post",
     "youtube_long",
     "youtube_short",
@@ -594,6 +604,8 @@ export const DisapproveContentPieceResponse = zod.object({
   campaignId: zod.number(),
   channel: zod.enum([
     "instagram_reel",
+    "tiktok_post",
+    "x_post",
     "linkedin_post",
     "youtube_long",
     "youtube_short",
@@ -640,6 +652,8 @@ export const SubmitContentPieceForReviewResponse = zod.object({
   campaignId: zod.number(),
   channel: zod.enum([
     "instagram_reel",
+    "tiktok_post",
+    "x_post",
     "linkedin_post",
     "youtube_long",
     "youtube_short",

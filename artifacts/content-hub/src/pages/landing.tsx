@@ -5,8 +5,12 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white text-black font-sans">
       <header className="border-b border-border/50 py-3 px-6 flex items-center justify-between sticky top-0 bg-black z-50">
-        <div className="flex items-center gap-2">
-          <img src="/logo-full.png" alt="Content Matrix" className="h-9 w-auto object-contain" />
+        <div className="overflow-hidden" style={{ height: '52px', width: '210px' }}>
+          <img
+            src="/logo-full.png"
+            alt="Content Matrix"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center center' }}
+          />
         </div>
         <div className="flex items-center gap-6">
           <Link href="/sign-in" className="text-sm font-medium text-white/80 hover:text-white transition-colors">Sign In</Link>
@@ -67,7 +71,7 @@ export default function LandingPage() {
           <Zap className="w-12 h-12 mx-auto mb-8" />
           <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-12">Connect every channel.</h2>
           <div className="flex flex-wrap justify-center gap-4">
-            {['Instagram Reels', 'LinkedIn Posts', 'YouTube Long', 'YouTube Shorts', 'Facebook Carousel', 'Facebook Groups', 'Reddit', 'Threads', 'Source Articles'].map((channel) => (
+            {['Instagram Reels', 'TikTok', 'X (Twitter)', 'LinkedIn Posts', 'YouTube Long', 'YouTube Shorts', 'Facebook Carousel', 'Facebook Groups', 'Reddit', 'Threads', 'Source Articles'].map((channel) => (
               <span key={channel} className="px-6 py-3 border border-border bg-white text-sm font-medium hover:border-black transition-colors cursor-default">
                 {channel}
               </span>
