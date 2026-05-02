@@ -2,21 +2,18 @@ openapi: 3.1.0
 info:
   title: Api
   version: 0.1.0
-  description: Content Hub API
+  description: Content Matrix API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
   - name: campaigns
-    description: Content campaign operations
   - name: content-pieces
-    description: Content piece operations
   - name: comments
-    description: Comment operations
   - name: dashboard
-    description: Dashboard summary operations
+  - name: folders
+  - name: sharing
 paths:
   /healthz:
     get:
@@ -35,7 +32,14 @@ paths:
     get:
       operationId: listCampaigns
       tags: [campaigns]
-      summary: List all campaigns
+      summary: List campaigns for the authenticated user
+      parameters:
+        - name: folderId
+          in: query
+          required: false
+          schema:
+            type: integer
+            nullable: true
       responses:
         "200":
           description: List of campaigns
@@ -134,6 +138,31 @@ paths:
       responses:
         "200":
           description: Approved campaign
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Campaign"
+
+  /campaigns/{id}/channels:
+    patch:
+      operationId: updateCampaignChannels
+      tags: [campaigns]
+      summary: Update which channels are included in a campaign
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCampaignChannelsBody"
+      responses:
+        "200":
+          description: Updated campaign channels
           content:
             application/json:
               schema:
@@ -306,11 +335,121 @@ paths:
         "204":
           description: Deleted
 
+  /folders:
+    get:
+      operationId: listFolders
+      tags: [folders]
+      summary: List folders for the authenticated user
+      responses:
+        "200":
+          description: List of folders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Folder"
+    post:
+      operationId: createFolder
+      tags: [folders]
+      summary: Create a folder
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFolderBody"
+      responses:
+        "201":
+          description: Created folder
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Folder"
+
+  /folders/{id}:
+    patch:
+      operationId: updateFolder
+      tags: [folders]
+      summary: Update a folder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFolderBody"
+      responses:
+        "200":
+          description: Updated folder
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Folder"
+    delete:
+      operationId: deleteFolder
+      tags: [folders]
+      summary: Delete a folder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /folders/{id}/share:
+    post:
+      operationId: shareFolderLink
+      tags: [folders]
+      summary: Generate a share link for a folder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Folder with share token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Folder"
+
+  /shared/folder/{token}:
+    get:
+      operationId: getSharedFolder
+      tags: [sharing]
+      summary: Get a shared folder and its campaigns by token (public)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Shared folder with campaigns
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharedFolderView"
+        "404":
+          description: Not found or token invalid
+
   /dashboard/summary:
     get:
       operationId: getDashboardSummary
       tags: [dashboard]
-      summary: Get dashboard summary stats
+      summary: Get dashboard summary stats for authenticated user
       responses:
         "200":
           description: Dashboard summary
@@ -323,7 +462,7 @@ paths:
     get:
       operationId: getRecentActivity
       tags: [dashboard]
-      summary: Get recent activity feed
+      summary: Get recent activity feed for authenticated user
       responses:
         "200":
           description: Recent activity
@@ -341,14 +480,15 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
     Campaign:
       type: object
       properties:
         id:
           type: integer
+        userId:
+          type: string
         title:
           type: string
         description:
@@ -357,6 +497,14 @@ components:
         status:
           type: string
           enum: [draft, in_review, approved, published]
+        folderId:
+          type: integer
+          nullable: true
+        channels:
+          type: array
+          items:
+            type: string
+            enum: [instagram_reel, linkedin_post, youtube_long, youtube_short, facebook_carousel, facebook_group_post, reddit_post, threads_post, source_article]
         createdAt:
           type: string
           format: date-time
@@ -369,13 +517,7 @@ components:
           type: string
           format: date-time
           nullable: true
-      required:
-        - id
-        - title
-        - status
-        - createdAt
-        - updatedAt
-        - contentPieceCount
+      required: [id, userId, title, status, channels, createdAt, updatedAt, contentPieceCount]
 
     CreateCampaignBody:
       type: object
@@ -385,8 +527,15 @@ components:
         description:
           type: string
           nullable: true
-      required:
-        - title
+        folderId:
+          type: integer
+          nullable: true
+        channels:
+          type: array
+          items:
+            type: string
+            enum: [instagram_reel, linkedin_post, youtube_long, youtube_short, facebook_carousel, facebook_group_post, reddit_post, threads_post, source_article]
+      required: [title]
 
     UpdateCampaignBody:
       type: object
@@ -399,6 +548,19 @@ components:
         status:
           type: string
           enum: [draft, in_review, approved, published]
+        folderId:
+          type: integer
+          nullable: true
+
+    UpdateCampaignChannelsBody:
+      type: object
+      properties:
+        channels:
+          type: array
+          items:
+            type: string
+            enum: [instagram_reel, linkedin_post, youtube_long, youtube_short, facebook_carousel, facebook_group_post, reddit_post, threads_post, source_article]
+      required: [channels]
 
     ContentPiece:
       type: object
@@ -437,15 +599,7 @@ components:
           type: string
           format: date-time
           nullable: true
-      required:
-        - id
-        - campaignId
-        - channel
-        - title
-        - status
-        - commentCount
-        - createdAt
-        - updatedAt
+      required: [id, campaignId, channel, title, status, commentCount, createdAt, updatedAt]
 
     CreateContentPieceBody:
       type: object
@@ -467,10 +621,7 @@ components:
           type: string
           enum: [image, video, carousel, text, article]
           nullable: true
-      required:
-        - campaignId
-        - channel
-        - title
+      required: [campaignId, channel, title]
 
     UpdateContentPieceBody:
       type: object
@@ -505,12 +656,7 @@ components:
         createdAt:
           type: string
           format: date-time
-      required:
-        - id
-        - contentPieceId
-        - authorName
-        - text
-        - createdAt
+      required: [id, contentPieceId, authorName, text, createdAt]
 
     CreateCommentBody:
       type: object
@@ -521,10 +667,62 @@ components:
           type: string
         text:
           type: string
-      required:
-        - contentPieceId
-        - authorName
-        - text
+      required: [contentPieceId, authorName, text]
+
+    Folder:
+      type: object
+      properties:
+        id:
+          type: integer
+        userId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        shareToken:
+          type: string
+          nullable: true
+        campaignCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required: [id, userId, title, campaignCount, createdAt, updatedAt]
+
+    CreateFolderBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+      required: [title]
+
+    UpdateFolderBody:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+
+    SharedFolderView:
+      type: object
+      properties:
+        folder:
+          $ref: "#/components/schemas/Folder"
+        campaigns:
+          type: array
+          items:
+            $ref: "#/components/schemas/Campaign"
+      required: [folder, campaigns]
 
     DashboardSummary:
       type: object
@@ -539,17 +737,13 @@ components:
           type: integer
         needsRevision:
           type: integer
+        totalFolders:
+          type: integer
         campaignsByStatus:
           type: object
           additionalProperties:
             type: integer
-      required:
-        - totalCampaigns
-        - totalContentPieces
-        - approvedPieces
-        - pendingReview
-        - needsRevision
-        - campaignsByStatus
+      required: [totalCampaigns, totalContentPieces, approvedPieces, pendingReview, needsRevision, totalFolders, campaignsByStatus]
 
     ActivityItem:
       type: object
@@ -558,7 +752,7 @@ components:
           type: integer
         type:
           type: string
-          enum: [campaign_created, piece_uploaded, piece_approved, comment_added, campaign_approved]
+          enum: [campaign_created, piece_uploaded, piece_approved, comment_added, campaign_approved, folder_created]
         description:
           type: string
         entityId:
@@ -568,10 +762,4 @@ components:
         createdAt:
           type: string
           format: date-time
-      required:
-        - id
-        - type
-        - description
-        - entityId
-        - entityTitle
-        - createdAt
+      required: [id, type, description, entityId, entityTitle, createdAt]

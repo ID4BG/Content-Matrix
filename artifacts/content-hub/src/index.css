@@ -1,4 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+@layer theme, base, clerk, components, utilities;
+@import '@clerk/themes/shadcn.css';
 @import "tailwindcss";
 @import "tw-animate-css";
 @plugin "@tailwindcss/typography";
@@ -98,7 +100,7 @@
   --popover-foreground: 0 0% 10%;
   --popover-border: 0 0% 92%;
 
-  --primary: 230 100% 30%;
+  --primary: 0 0% 10%;
   --primary-foreground: 0 0% 100%;
 
   --secondary: 0 0% 96%;
@@ -107,14 +109,14 @@
   --muted: 0 0% 96%;
   --muted-foreground: 0 0% 45%;
 
-  --accent: 30 100% 50%;
-  --accent-foreground: 0 0% 100%;
+  --accent: 0 0% 90%;
+  --accent-foreground: 0 0% 10%;
 
   --destructive: 0 100% 40%;
   --destructive-foreground: 0 0% 100%;
 
   --input: 0 0% 90%;
-  --ring: 230 100% 30%;
+  --ring: 0 0% 10%;
   --chart-1: 230 100% 30%;
   --chart-2: 30 100% 50%;
   --chart-3: 160 50% 40%;
@@ -171,18 +173,18 @@
   --popover: 0 0% 100%;
   --popover-foreground: 0 0% 10%;
   --popover-border: 0 0% 92%;
-  --primary: 230 100% 30%;
+  --primary: 0 0% 10%;
   --primary-foreground: 0 0% 100%;
   --secondary: 0 0% 96%;
   --secondary-foreground: 0 0% 15%;
   --muted: 0 0% 96%;
   --muted-foreground: 0 0% 45%;
-  --accent: 30 100% 50%;
-  --accent-foreground: 0 0% 100%;
+  --accent: 0 0% 90%;
+  --accent-foreground: 0 0% 10%;
   --destructive: 0 100% 40%;
   --destructive-foreground: 0 0% 100%;
   --input: 0 0% 90%;
-  --ring: 230 100% 30%;
+  --ring: 0 0% 10%;
   --chart-1: 230 100% 30%;
   --chart-2: 30 100% 50%;
   --chart-3: 160 50% 40%;

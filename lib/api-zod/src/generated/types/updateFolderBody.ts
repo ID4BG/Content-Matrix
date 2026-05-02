@@ -5,11 +5,8 @@
  * Content Matrix API
  * OpenAPI spec version: 0.1.0
  */
-import type { UpdateCampaignBodyStatus } from "./updateCampaignBodyStatus";
 
-export interface UpdateCampaignBody {
+export interface UpdateFolderBody {
   title?: string;
   description?: string | null;
-  status?: UpdateCampaignBodyStatus;
-  folderId?: number | null;
 }

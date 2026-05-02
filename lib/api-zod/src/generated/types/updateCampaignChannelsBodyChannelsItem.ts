@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ContentPieceChannel =
-  (typeof ContentPieceChannel)[keyof typeof ContentPieceChannel];
+export type UpdateCampaignChannelsBodyChannelsItem =
+  (typeof UpdateCampaignChannelsBodyChannelsItem)[keyof typeof UpdateCampaignChannelsBodyChannelsItem];
 
-export const ContentPieceChannel = {
+export const UpdateCampaignChannelsBodyChannelsItem = {
   instagram_reel: "instagram_reel",
   linkedin_post: "linkedin_post",
   youtube_long: "youtube_long",

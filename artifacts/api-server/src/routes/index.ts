@@ -4,6 +4,7 @@ import campaignsRouter from "./campaigns";
 import contentPiecesRouter from "./content-pieces";
 import commentsRouter from "./comments";
 import dashboardRouter from "./dashboard";
+import foldersRouter from "./folders";
 
 const router: IRouter = Router();
 
@@ -12,5 +13,6 @@ router.use(campaignsRouter);
 router.use(contentPiecesRouter);
 router.use(commentsRouter);
 router.use(dashboardRouter);
+router.use(foldersRouter);
 
 export default router;

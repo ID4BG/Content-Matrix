@@ -6,6 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ListCommentsParams = {
-  contentPieceId: number;
+export type ListCampaignsParams = {
+  folderId?: number | null;
 };

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ListCommentsParams = {
-  contentPieceId: number;
-};
+export interface CreateFolderBody {
+  title: string;
+  description?: string | null;
+}

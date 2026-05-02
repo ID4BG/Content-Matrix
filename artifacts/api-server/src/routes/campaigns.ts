@@ -5,7 +5,7 @@ import {
   contentPiecesTable,
   activityTable,
 } from "@workspace/db";
-import { eq, sql } from "drizzle-orm";
+import { eq, sql, and } from "drizzle-orm";
 import {
   CreateCampaignBody,
   UpdateCampaignBody,
@@ -13,12 +13,40 @@ import {
   UpdateCampaignParams,
   DeleteCampaignParams,
   ApproveCampaignParams,
+  UpdateCampaignChannelsBody,
+  UpdateCampaignChannelsParams,
+  ListCampaignsQueryParams,
 } from "@workspace/api-zod";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-router.get("/campaigns", async (req, res) => {
-  const campaigns = await db.select().from(campaignsTable).orderBy(sql`${campaignsTable.createdAt} desc`);
+function withCount(campaign: typeof campaignsTable.$inferSelect, count: number) {
+  return { ...campaign, contentPieceCount: count };
+}
+
+async function getPieceCount(campaignId: number): Promise<number> {
+  const [row] = await db
+    .select({ count: sql<number>`count(*)`.mapWith(Number) })
+    .from(contentPiecesTable)
+    .where(eq(contentPiecesTable.campaignId, campaignId));
+  return row?.count ?? 0;
+}
+
+router.get("/campaigns", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
+  const { folderId } = ListCampaignsQueryParams.parse(req.query);
+
+  const conditions = [eq(campaignsTable.userId, userId)];
+  if (folderId != null) {
+    conditions.push(eq(campaignsTable.folderId, folderId));
+  }
+
+  const campaigns = await db
+    .select()
+    .from(campaignsTable)
+    .where(and(...conditions))
+    .orderBy(sql`${campaignsTable.createdAt} desc`);
 
   const counts = await db
     .select({ campaignId: contentPiecesTable.campaignId, count: sql<number>`count(*)`.mapWith(Number) })
@@ -26,13 +54,17 @@ router.get("/campaigns", async (req, res) => {
     .groupBy(contentPiecesTable.campaignId);
 
   const countMap = new Map(counts.map((c) => [c.campaignId, c.count]));
-
-  res.json(campaigns.map((c) => ({ ...c, contentPieceCount: countMap.get(c.id) ?? 0 })));
+  res.json(campaigns.map((c) => withCount(c, countMap.get(c.id) ?? 0)));
 });
 
-router.post("/campaigns", async (req, res) => {
+router.post("/campaigns", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
   const body = CreateCampaignBody.parse(req.body);
-  const [campaign] = await db.insert(campaignsTable).values({ ...body }).returning();
+
+  const [campaign] = await db
+    .insert(campaignsTable)
+    .values({ ...body, userId })
+    .returning();
 
   await db.insert(activityTable).values({
     type: "campaign_created",
@@ -41,54 +73,54 @@ router.post("/campaigns", async (req, res) => {
     entityTitle: campaign.title,
   });
 
-  res.status(201).json({ ...campaign, contentPieceCount: 0 });
+  res.status(201).json(withCount(campaign, 0));
 });
 
-router.get("/campaigns/:id", async (req, res) => {
+router.get("/campaigns/:id", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
   const { id } = GetCampaignParams.parse(req.params);
-  const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
+
+  const [campaign] = await db
+    .select()
+    .from(campaignsTable)
+    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.userId, userId)));
+
   if (!campaign) return res.status(404).json({ error: "Campaign not found" });
-
-  const [countRow] = await db
-    .select({ count: sql<number>`count(*)`.mapWith(Number) })
-    .from(contentPiecesTable)
-    .where(eq(contentPiecesTable.campaignId, id));
-
-  res.json({ ...campaign, contentPieceCount: countRow?.count ?? 0 });
+  res.json(withCount(campaign, await getPieceCount(id)));
 });
 
-router.patch("/campaigns/:id", async (req, res) => {
+router.patch("/campaigns/:id", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
   const { id } = UpdateCampaignParams.parse(req.params);
   const body = UpdateCampaignBody.parse(req.body);
 
   const [updated] = await db
     .update(campaignsTable)
     .set({ ...body, updatedAt: new Date() })
-    .where(eq(campaignsTable.id, id))
+    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.userId, userId)))
     .returning();
 
   if (!updated) return res.status(404).json({ error: "Campaign not found" });
-
-  const [countRow] = await db
-    .select({ count: sql<number>`count(*)`.mapWith(Number) })
-    .from(contentPiecesTable)
-    .where(eq(contentPiecesTable.campaignId, id));
-
-  res.json({ ...updated, contentPieceCount: countRow?.count ?? 0 });
+  res.json(withCount(updated, await getPieceCount(id)));
 });
 
-router.delete("/campaigns/:id", async (req, res) => {
+router.delete("/campaigns/:id", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
   const { id } = DeleteCampaignParams.parse(req.params);
-  await db.delete(campaignsTable).where(eq(campaignsTable.id, id));
+  await db
+    .delete(campaignsTable)
+    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.userId, userId)));
   res.status(204).send();
 });
 
-router.post("/campaigns/:id/approve", async (req, res) => {
+router.post("/campaigns/:id/approve", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
   const { id } = ApproveCampaignParams.parse(req.params);
+
   const [updated] = await db
     .update(campaignsTable)
     .set({ status: "approved", approvedAt: new Date(), updatedAt: new Date() })
-    .where(eq(campaignsTable.id, id))
+    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.userId, userId)))
     .returning();
 
   if (!updated) return res.status(404).json({ error: "Campaign not found" });
@@ -100,12 +132,22 @@ router.post("/campaigns/:id/approve", async (req, res) => {
     entityTitle: updated.title,
   });
 
-  const [countRow] = await db
-    .select({ count: sql<number>`count(*)`.mapWith(Number) })
-    .from(contentPiecesTable)
-    .where(eq(contentPiecesTable.campaignId, id));
+  res.json(withCount(updated, await getPieceCount(id)));
+});
 
-  res.json({ ...updated, contentPieceCount: countRow?.count ?? 0 });
+router.patch("/campaigns/:id/channels", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
+  const { id } = UpdateCampaignChannelsParams.parse(req.params);
+  const body = UpdateCampaignChannelsBody.parse(req.body);
+
+  const [updated] = await db
+    .update(campaignsTable)
+    .set({ channels: body.channels, updatedAt: new Date() })
+    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.userId, userId)))
+    .returning();
+
+  if (!updated) return res.status(404).json({ error: "Campaign not found" });
+  res.json(withCount(updated, await getPieceCount(id)));
 });
 
 export default router;
