@@ -31,6 +31,8 @@ export const ListCampaignsResponseItem = zod.object({
   channels: zod.array(
     zod.enum([
       "instagram_reel",
+      "tiktok_post",
+      "x_post",
       "linkedin_post",
       "youtube_long",
       "youtube_short",
@@ -59,6 +61,8 @@ export const CreateCampaignBody = zod.object({
     .array(
       zod.enum([
         "instagram_reel",
+        "tiktok_post",
+        "x_post",
         "linkedin_post",
         "youtube_long",
         "youtube_short",
@@ -89,6 +93,8 @@ export const GetCampaignResponse = zod.object({
   channels: zod.array(
     zod.enum([
       "instagram_reel",
+      "tiktok_post",
+      "x_post",
       "linkedin_post",
       "youtube_long",
       "youtube_short",
@@ -129,6 +135,8 @@ export const UpdateCampaignResponse = zod.object({
   channels: zod.array(
     zod.enum([
       "instagram_reel",
+      "tiktok_post",
+      "x_post",
       "linkedin_post",
       "youtube_long",
       "youtube_short",
@@ -169,6 +177,43 @@ export const ApproveCampaignResponse = zod.object({
   channels: zod.array(
     zod.enum([
       "instagram_reel",
+      "tiktok_post",
+      "x_post",
+      "linkedin_post",
+      "youtube_long",
+      "youtube_short",
+      "facebook_carousel",
+      "facebook_group_post",
+      "reddit_post",
+      "threads_post",
+      "source_article",
+    ]),
+  ),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  contentPieceCount: zod.number(),
+  approvedAt: zod.coerce.date().nullish(),
+});
+
+/**
+ * @summary Disapprove (un-approve) a campaign
+ */
+export const DisapproveCampaignParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DisapproveCampaignResponse = zod.object({
+  id: zod.number(),
+  userId: zod.string(),
+  title: zod.string(),
+  description: zod.string().nullish(),
+  status: zod.enum(["draft", "in_review", "approved", "published"]),
+  folderId: zod.number().nullish(),
+  channels: zod.array(
+    zod.enum([
+      "instagram_reel",
+      "tiktok_post",
+      "x_post",
       "linkedin_post",
       "youtube_long",
       "youtube_short",
@@ -196,6 +241,8 @@ export const UpdateCampaignChannelsBody = zod.object({
   channels: zod.array(
     zod.enum([
       "instagram_reel",
+      "tiktok_post",
+      "x_post",
       "linkedin_post",
       "youtube_long",
       "youtube_short",
@@ -218,6 +265,8 @@ export const UpdateCampaignChannelsResponse = zod.object({
   channels: zod.array(
     zod.enum([
       "instagram_reel",
+      "tiktok_post",
+      "x_post",
       "linkedin_post",
       "youtube_long",
       "youtube_short",
@@ -280,6 +329,8 @@ export const UpdateCampaignMemberParams = zod.object({
 });
 
 export const UpdateCampaignMemberBody = zod.object({
+  firstName: zod.string().optional(),
+  lastName: zod.string().optional(),
   role: zod.enum(["owner", "marketer", "team_member"]).optional(),
   permissions: zod.array(zod.string()).optional(),
 });
@@ -312,6 +363,8 @@ export const ListContentPiecesQueryParams = zod.object({
   channel: zod
     .enum([
       "instagram_reel",
+      "tiktok_post",
+      "x_post",
       "linkedin_post",
       "youtube_long",
       "youtube_short",
@@ -754,6 +807,8 @@ export const GetSharedFolderResponse = zod.object({
       channels: zod.array(
         zod.enum([
           "instagram_reel",
+          "tiktok_post",
+          "x_post",
           "linkedin_post",
           "youtube_long",
           "youtube_short",

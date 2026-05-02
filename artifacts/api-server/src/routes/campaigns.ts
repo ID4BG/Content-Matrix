@@ -135,6 +135,20 @@ router.post("/campaigns/:id/approve", requireAuth, async (req, res) => {
   res.json(withCount(updated, await getPieceCount(id)));
 });
 
+router.post("/campaigns/:id/disapprove", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
+  const { id } = ApproveCampaignParams.parse(req.params);
+
+  const [updated] = await db
+    .update(campaignsTable)
+    .set({ status: "draft", approvedAt: null, updatedAt: new Date() })
+    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.userId, userId)))
+    .returning();
+
+  if (!updated) return res.status(404).json({ error: "Campaign not found" });
+  res.json(withCount(updated, await getPieceCount(id)));
+});
+
 router.patch("/campaigns/:id/channels", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
   const { id } = UpdateCampaignChannelsParams.parse(req.params);

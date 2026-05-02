@@ -11,6 +11,8 @@ export type CreateCampaignBodyChannelsItem =
 
 export const CreateCampaignBodyChannelsItem = {
   instagram_reel: "instagram_reel",
+  tiktok_post: "tiktok_post",
+  x_post: "x_post",
   linkedin_post: "linkedin_post",
   youtube_long: "youtube_long",
   youtube_short: "youtube_short",

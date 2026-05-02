@@ -55,6 +55,8 @@ router.patch("/campaigns/:id/members/:memberId", requireAuth, async (req, res) =
   const body = UpdateCampaignMemberBody.parse(req.body);
 
   const updateData: Record<string, unknown> = {};
+  if (body.firstName !== undefined) updateData.firstName = body.firstName;
+  if (body.lastName !== undefined) updateData.lastName = body.lastName;
   if (body.role !== undefined) updateData.role = body.role;
   if (body.permissions !== undefined) updateData.permissions = body.permissions;
 

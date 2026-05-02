@@ -1,17 +1,50 @@
+import { useState } from "react";
 import { useUser, useClerk } from "@clerk/react";
 import { useLocation } from "wouter";
-import { LogOut, User, Mail, Shield } from "lucide-react";
+import { LogOut, User, Mail, Shield, Edit2, Loader2, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Settings() {
   const { user, isLoaded } = useUser();
   const { signOut } = useClerk();
   const [, setLocation] = useLocation();
+  const { toast } = useToast();
+
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+  const [isSavingName, setIsSavingName] = useState(false);
 
   const handleSignOut = () => {
     signOut(() => setLocation("/"));
+  };
+
+  const startEditName = () => {
+    setEditFirstName(user?.firstName ?? "");
+    setEditLastName(user?.lastName ?? "");
+    setIsEditingName(true);
+  };
+
+  const handleSaveName = async () => {
+    if (!user) return;
+    setIsSavingName(true);
+    try {
+      await user.update({ firstName: editFirstName.trim(), lastName: editLastName.trim() });
+      toast({ title: "Display name updated" });
+      setIsEditingName(false);
+    } catch {
+      toast({ title: "Failed to update name", variant: "destructive" });
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
+  const handleCancelName = () => {
+    setIsEditingName(false);
   };
 
   return (
@@ -57,15 +90,70 @@ export default function Settings() {
         )}
 
         <div className="border border-border bg-white divide-y divide-border">
-          <div className="px-6 py-5 flex items-center justify-between">
-            <div>
-              <p className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground">Display Name</p>
-              <p className="text-base font-semibold mt-1">
-                {[user?.firstName, user?.lastName].filter(Boolean).join(' ') || '—'}
-              </p>
-            </div>
-            <User className="w-5 h-5 text-muted-foreground" />
+          {/* Display Name — editable */}
+          <div className="px-6 py-5">
+            {isEditingName ? (
+              <div className="space-y-3">
+                <p className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground">Display Name</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">First Name</label>
+                    <Input
+                      value={editFirstName}
+                      onChange={e => setEditFirstName(e.target.value)}
+                      className="rounded-none"
+                      placeholder="First"
+                      autoFocus
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Last Name</label>
+                    <Input
+                      value={editLastName}
+                      onChange={e => setEditLastName(e.target.value)}
+                      className="rounded-none"
+                      placeholder="Last"
+                      onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') handleCancelName(); }}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSaveName}
+                    disabled={isSavingName}
+                    className="bg-black text-white rounded-none gap-1.5"
+                  >
+                    {isSavingName ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                    Save
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={handleCancelName} className="rounded-none">
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground">Display Name</p>
+                  <p className="text-base font-semibold mt-1">
+                    {[user?.firstName, user?.lastName].filter(Boolean).join(' ') || '—'}
+                  </p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={startEditName}
+                  className="gap-1.5 text-xs text-muted-foreground hover:text-foreground rounded-none"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                  Edit
+                </Button>
+              </div>
+            )}
           </div>
+
+          {/* Email — read only */}
           <div className="px-6 py-5 flex items-center justify-between">
             <div>
               <p className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground">Email Address</p>
@@ -99,9 +187,8 @@ export default function Settings() {
       <section className="space-y-4">
         <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">About</h2>
         <div className="border border-border bg-white p-6 space-y-3">
-          <div className="flex items-center gap-2 mb-4 border-b border-border/50 pb-4">
-            <div className="w-6 h-6 border-2 border-black flex items-center justify-center font-bold" style={{ fontSize: '10px' }}>CM</div>
-            <span className="font-bold tracking-tight text-lg">Content Matrix</span>
+          <div className="flex items-center gap-3 mb-4 border-b border-border/50 pb-4 bg-black p-3 -mx-2">
+            <img src="/logo-full.png" alt="Content Matrix" className="h-9 w-auto object-contain" />
           </div>
           <p className="text-sm text-muted-foreground leading-relaxed font-medium">
             A multi-user content distribution platform. Create campaigns, manage content across channels, and share folders with collaborators.

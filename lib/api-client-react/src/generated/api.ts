@@ -649,6 +649,90 @@ export const useApproveCampaign = <
 };
 
 /**
+ * @summary Disapprove (un-approve) a campaign
+ */
+export const getDisapproveCampaignUrl = (id: number) => {
+  return `/api/campaigns/${id}/disapprove`;
+};
+
+export const disapproveCampaign = async (
+  id: number,
+  options?: RequestInit,
+): Promise<Campaign> => {
+  return customFetch<Campaign>(getDisapproveCampaignUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getDisapproveCampaignMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disapproveCampaign>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof disapproveCampaign>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["disapproveCampaign"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof disapproveCampaign>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return disapproveCampaign(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DisapproveCampaignMutationResult = NonNullable<
+  Awaited<ReturnType<typeof disapproveCampaign>>
+>;
+
+export type DisapproveCampaignMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Disapprove (un-approve) a campaign
+ */
+export const useDisapproveCampaign = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disapproveCampaign>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof disapproveCampaign>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDisapproveCampaignMutationOptions(options));
+};
+
+/**
  * @summary Update which channels are included in a campaign
  */
 export const getUpdateCampaignChannelsUrl = (id: number) => {

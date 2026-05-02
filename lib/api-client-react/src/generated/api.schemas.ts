@@ -24,6 +24,8 @@ export type CampaignChannelsItem =
 
 export const CampaignChannelsItem = {
   instagram_reel: "instagram_reel",
+  tiktok_post: "tiktok_post",
+  x_post: "x_post",
   linkedin_post: "linkedin_post",
   youtube_long: "youtube_long",
   youtube_short: "youtube_short",
@@ -53,6 +55,8 @@ export type CreateCampaignBodyChannelsItem =
 
 export const CreateCampaignBodyChannelsItem = {
   instagram_reel: "instagram_reel",
+  tiktok_post: "tiktok_post",
+  x_post: "x_post",
   linkedin_post: "linkedin_post",
   youtube_long: "youtube_long",
   youtube_short: "youtube_short",
@@ -92,6 +96,8 @@ export type UpdateCampaignChannelsBodyChannelsItem =
 
 export const UpdateCampaignChannelsBodyChannelsItem = {
   instagram_reel: "instagram_reel",
+  tiktok_post: "tiktok_post",
+  x_post: "x_post",
   linkedin_post: "linkedin_post",
   youtube_long: "youtube_long",
   youtube_short: "youtube_short",
@@ -154,6 +160,8 @@ export const UpdateCampaignMemberBodyRole = {
 } as const;
 
 export interface UpdateCampaignMemberBody {
+  firstName?: string;
+  lastName?: string;
   role?: UpdateCampaignMemberBodyRole;
   permissions?: string[];
 }
@@ -376,6 +384,8 @@ export type ListContentPiecesChannel =
 
 export const ListContentPiecesChannel = {
   instagram_reel: "instagram_reel",
+  tiktok_post: "tiktok_post",
+  x_post: "x_post",
   linkedin_post: "linkedin_post",
   youtube_long: "youtube_long",
   youtube_short: "youtube_short",

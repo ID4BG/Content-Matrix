@@ -8,6 +8,8 @@
 import type { UpdateCampaignMemberBodyRole } from "./updateCampaignMemberBodyRole";
 
 export interface UpdateCampaignMemberBody {
+  firstName?: string;
+  lastName?: string;
   role?: UpdateCampaignMemberBodyRole;
   permissions?: string[];
 }

@@ -4,14 +4,13 @@ import { ArrowRight, Layers, LayoutDashboard, Share2, Zap } from "lucide-react";
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white text-black font-sans">
-      <header className="border-b border-border/50 py-4 px-6 flex items-center justify-between sticky top-0 bg-white/80 backdrop-blur-md z-50">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 border-2 border-black flex items-center justify-center font-bold text-xs tracking-tighter">CM</div>
-          <span className="font-bold text-xl tracking-tight">Content Matrix</span>
+      <header className="border-b border-border/50 py-3 px-6 flex items-center justify-between sticky top-0 bg-black z-50">
+        <div className="flex items-center gap-2">
+          <img src="/logo-full.png" alt="Content Matrix" className="h-9 w-auto object-contain" />
         </div>
         <div className="flex items-center gap-6">
-          <Link href="/sign-in" className="text-sm font-medium hover:opacity-70 transition-opacity">Sign In</Link>
-          <Link href="/sign-up" className="bg-black text-white text-sm font-medium px-5 py-2.5 hover:bg-black/80 transition-colors">Get Started</Link>
+          <Link href="/sign-in" className="text-sm font-medium text-white/80 hover:text-white transition-colors">Sign In</Link>
+          <Link href="/sign-up" className="bg-white text-black text-sm font-medium px-5 py-2.5 hover:bg-white/90 transition-colors">Get Started</Link>
         </div>
       </header>
 

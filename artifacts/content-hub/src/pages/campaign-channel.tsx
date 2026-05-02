@@ -307,7 +307,7 @@ export default function CampaignChannel() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-1.5 shrink-0">
                 {piece.status === "approved" ? (
                   <Button
                     size="sm"
@@ -332,7 +332,7 @@ export default function CampaignChannel() {
                 )}
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button size="sm" variant="ghost" className="rounded-none h-8 text-muted-foreground hover:text-destructive px-2">
+                    <Button size="sm" variant="ghost" className="rounded-none h-8 text-muted-foreground hover:text-destructive px-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <X className="w-3.5 h-3.5" />
                     </Button>
                   </AlertDialogTrigger>

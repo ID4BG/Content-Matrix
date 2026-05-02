@@ -1,11 +1,15 @@
 import { ContentPieceChannel, CampaignStatus, ContentPieceStatus } from "@workspace/api-client-react";
-import { SiInstagram, SiYoutube, SiFacebook, SiReddit, SiThreads } from "react-icons/si";
+import { SiInstagram, SiYoutube, SiFacebook, SiReddit, SiThreads, SiTiktok, SiX } from "react-icons/si";
 import { FileText, Linkedin } from "lucide-react";
 
 export function ChannelIcon({ channel, className = "w-5 h-5" }: { channel: ContentPieceChannel; className?: string }) {
   switch (channel) {
     case "instagram_reel":
       return <SiInstagram className={className} />;
+    case "tiktok_post":
+      return <SiTiktok className={className} />;
+    case "x_post":
+      return <SiX className={className} />;
     case "linkedin_post":
       return <Linkedin className={className} />;
     case "youtube_long":
@@ -27,6 +31,8 @@ export function ChannelIcon({ channel, className = "w-5 h-5" }: { channel: Conte
 
 const CHANNEL_NAMES: Record<ContentPieceChannel, string> = {
   instagram_reel: "Instagram",
+  tiktok_post: "TikTok",
+  x_post: "X (Twitter)",
   linkedin_post: "LinkedIn",
   youtube_long: "YouTube Long",
   youtube_short: "YouTube Short",
