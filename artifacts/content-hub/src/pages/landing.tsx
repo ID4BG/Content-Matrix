@@ -92,6 +92,9 @@ export default function LandingPage() {
 
       <footer className="border-t border-border/50 py-8 px-6 text-center text-sm text-muted-foreground">
         <p>&copy; {new Date().getFullYear()} Content Matrix. All rights reserved.</p>
+        <p className="mt-2 text-xs tracking-wide">
+          Made by <span className="font-semibold text-foreground">Arnela</span>, for Marketers — with love.
+        </p>
       </footer>
     </div>
   );

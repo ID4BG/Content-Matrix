@@ -230,6 +230,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </button>
           </div>
 
+          {/* Attribution */}
+          <p className="text-[9px] text-muted-foreground/50 font-medium tracking-widest uppercase text-center pb-1">
+            Made by <span className="text-muted-foreground/70">Arnela</span>, for Marketers — with love
+          </p>
+
           {/* User row */}
           <Link href="/settings" className="flex items-center gap-3 group py-1">
             <Avatar className="w-8 h-8 border border-border rounded-none">
