@@ -119,7 +119,10 @@ export interface CampaignMember {
   id: number;
   campaignId: number;
   email: string;
+  firstName: string;
+  lastName: string;
   role: CampaignMemberRole;
+  permissions: string[];
   accepted: boolean;
   invitedAt: string;
 }
@@ -135,7 +138,10 @@ export const InviteCampaignMemberBodyRole = {
 
 export interface InviteCampaignMemberBody {
   email: string;
+  firstName: string;
+  lastName: string;
   role: InviteCampaignMemberBodyRole;
+  permissions?: string[];
 }
 
 export type UpdateCampaignMemberBodyRole =
@@ -148,7 +154,13 @@ export const UpdateCampaignMemberBodyRole = {
 } as const;
 
 export interface UpdateCampaignMemberBody {
-  role: UpdateCampaignMemberBodyRole;
+  role?: UpdateCampaignMemberBodyRole;
+  permissions?: string[];
+}
+
+export interface SubmitForReviewBody {
+  reviewerMemberId?: number | null;
+  note?: string | null;
 }
 
 export type ContentPieceChannel =
@@ -292,6 +304,7 @@ export interface Folder {
   id: number;
   userId: string;
   title: string;
+  parentFolderName?: string | null;
   description?: string | null;
   shareToken?: string | null;
   campaignCount: number;
@@ -301,11 +314,13 @@ export interface Folder {
 
 export interface CreateFolderBody {
   title: string;
+  parentFolderName?: string | null;
   description?: string | null;
 }
 
 export interface UpdateFolderBody {
   title?: string;
+  parentFolderName?: string | null;
   description?: string | null;
 }
 

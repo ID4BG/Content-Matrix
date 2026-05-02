@@ -10,6 +10,7 @@ export interface Folder {
   id: number;
   userId: string;
   title: string;
+  parentFolderName?: string | null;
   description?: string | null;
   shareToken?: string | null;
   campaignCount: number;

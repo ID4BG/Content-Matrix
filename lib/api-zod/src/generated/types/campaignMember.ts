@@ -11,7 +11,10 @@ export interface CampaignMember {
   id: number;
   campaignId: number;
   email: string;
+  firstName: string;
+  lastName: string;
   role: CampaignMemberRole;
+  permissions: string[];
   accepted: boolean;
   invitedAt: Date;
 }

@@ -2,16 +2,15 @@ import { useRoute, Link, useLocation } from "wouter";
 import { format } from "date-fns";
 import {
   ArrowLeft, Plus, Loader2, Calendar, MessageSquare, CheckCircle2,
-  PlayCircle, ImageIcon, Clock, Send, X, Crown, Briefcase,
+  PlayCircle, ImageIcon, Clock, Send, X, Crown, Briefcase, XCircle,
 } from "lucide-react";
-import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 
 import {
   useListContentPieces, getListContentPiecesQueryKey,
   useCreateContentPiece, useDeleteContentPiece,
   useGetCampaign, getGetCampaignQueryKey,
-  useUpdateContentPiece,
   ContentPiece, CreateContentPieceBodyChannel,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
@@ -20,7 +19,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -33,7 +31,19 @@ import {
 } from "@/components/ui/select";
 
 type MemberRole = "owner" | "marketer" | "team_member";
-interface CampaignMember { id: number; email: string; role: MemberRole; }
+interface CampaignMember {
+  id: number;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: MemberRole;
+  permissions: string[];
+}
+
+function memberDisplayName(m: CampaignMember) {
+  const name = `${m.firstName} ${m.lastName}`.trim();
+  return name || m.email;
+}
 
 function isYouTubeUrl(url: string) { return /youtube\.com|youtu\.be/.test(url); }
 function getYouTubeThumbnail(url: string) {
@@ -102,23 +112,43 @@ export default function CampaignChannel() {
 
   const createPiece = useCreateContentPiece();
   const deletePiece = useDeleteContentPiece();
-  const updatePiece = useUpdateContentPiece();
 
-  // New piece dialog
+  const queryKey = getListContentPiecesQueryKey({ campaignId });
+
+  const submitForReview = useMutation({
+    mutationFn: async ({ pieceId, reviewerMemberId, note }: { pieceId: number; reviewerMemberId?: number | null; note?: string }) => {
+      const res = await fetch(`/api/content-pieces/${pieceId}/submit-review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reviewerMemberId: reviewerMemberId ?? null, note: note ?? null }),
+      });
+      if (!res.ok) throw new Error("Failed to submit for review");
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
+  const disapprovePiece = useMutation({
+    mutationFn: async (pieceId: number) => {
+      const res = await fetch(`/api/content-pieces/${pieceId}/disapprove`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to disapprove");
+      return res.json();
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey }),
+  });
+
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newCaption, setNewCaption] = useState("");
   const [newDate, setNewDate] = useState("");
   const [newMediaUrl, setNewMediaUrl] = useState("");
 
-  // Submit for review dialog
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [reviewPieceId, setReviewPieceId] = useState<number | null>(null);
   const [reviewNote, setReviewNote] = useState("");
-  const [reviewMentionEmail, setReviewMentionEmail] = useState("");
+  const [reviewerMemberId, setReviewerMemberId] = useState<string>("");
 
-  const ownerEmails = members?.filter(m => m.role === "owner").map(m => m.email) ?? [];
-  const marketerEmails = members?.filter(m => m.role === "marketer").map(m => m.email) ?? [];
+  const reviewableMembers = members?.filter(m => m.role === "owner" || m.role === "marketer") ?? [];
 
   const approvedCount = pieces.filter(p => p.status === "approved").length;
   const allApproved = pieces.length > 0 && approvedCount === pieces.length;
@@ -140,7 +170,7 @@ export default function CampaignChannel() {
       },
       {
         onSuccess: (p) => {
-          queryClient.invalidateQueries({ queryKey: getListContentPiecesQueryKey({ campaignId }) });
+          queryClient.invalidateQueries({ queryKey });
           setIsAddOpen(false);
           setNewTitle(""); setNewCaption(""); setNewDate(""); setNewMediaUrl("");
           setLocation(`/campaigns/${campaignId}/pieces/${p.id}`);
@@ -153,25 +183,28 @@ export default function CampaignChannel() {
   const openReview = (pieceId: number) => {
     setReviewPieceId(pieceId);
     setReviewNote("");
-    setReviewMentionEmail(ownerEmails[0] ?? marketerEmails[0] ?? "");
+    setReviewerMemberId(reviewableMembers[0] ? String(reviewableMembers[0].id) : "");
     setIsReviewOpen(true);
   };
 
   const handleSubmitForReview = () => {
     if (!reviewPieceId) return;
-    updatePiece.mutate(
-      { id: reviewPieceId, data: { status: "in_review" } },
+    const memberId = reviewerMemberId ? parseInt(reviewerMemberId, 10) : null;
+    const reviewer = memberId ? reviewableMembers.find(m => m.id === memberId) : null;
+
+    submitForReview.mutate(
+      { pieceId: reviewPieceId, reviewerMemberId: memberId, note: reviewNote },
       {
         onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListContentPiecesQueryKey({ campaignId }) });
           setIsReviewOpen(false);
           toast({
             title: "Submitted for review",
-            description: reviewMentionEmail
-              ? `${reviewMentionEmail} has been notified.`
+            description: reviewer
+              ? `${memberDisplayName(reviewer)} will receive an email notification.`
               : "Status updated to In Review.",
           });
         },
+        onError: () => toast({ title: "Failed to submit", variant: "destructive" }),
       }
     );
   };
@@ -179,21 +212,26 @@ export default function CampaignChannel() {
   const handleDeletePiece = (pieceId: number) => {
     deletePiece.mutate({ id: pieceId }, {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListContentPiecesQueryKey({ campaignId }) });
+        queryClient.invalidateQueries({ queryKey });
         toast({ title: "Piece deleted" });
       },
     });
   };
 
+  const handleDisapprove = (pieceId: number) => {
+    disapprovePiece.mutate(pieceId, {
+      onSuccess: () => toast({ title: "Approval revoked", description: "Piece moved back to Needs Revision." }),
+      onError: () => toast({ title: "Failed to disapprove", variant: "destructive" }),
+    });
+  };
+
   return (
     <div className="space-y-8 max-w-4xl">
-      {/* Back */}
       <Link href={`/campaigns/${campaignId}`} className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors group">
         <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
         Back to {campaign?.title ?? "Campaign"}
       </Link>
 
-      {/* Header */}
       <div className="flex items-center justify-between gap-4 pb-6 border-b border-border/40">
         <div className="flex items-center gap-4">
           <div className="w-10 h-10 border border-border flex items-center justify-center">
@@ -222,7 +260,6 @@ export default function CampaignChannel() {
         </Button>
       </div>
 
-      {/* Pieces List */}
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full" />)}
@@ -239,12 +276,10 @@ export default function CampaignChannel() {
         <div className="space-y-2">
           {pieces.map(piece => (
             <div key={piece.id} className="group border border-border hover:border-black transition-colors bg-white flex items-start gap-4 p-4">
-              {/* Thumbnail */}
               <Link href={`/campaigns/${campaignId}/pieces/${piece.id}`}>
                 <PieceThumbnail piece={piece} />
               </Link>
 
-              {/* Info */}
               <div className="flex-1 min-w-0 space-y-1">
                 <div className="flex items-start justify-between gap-2">
                   <Link href={`/campaigns/${campaignId}/pieces/${piece.id}`} className="hover:underline underline-offset-2">
@@ -272,9 +307,19 @@ export default function CampaignChannel() {
                 </div>
               </div>
 
-              {/* Actions */}
               <div className="flex items-center gap-1.5 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                {piece.status !== "approved" && (
+                {piece.status === "approved" ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-none gap-1.5 text-xs h-8 border-amber-300 text-amber-700 hover:bg-amber-50"
+                    onClick={() => handleDisapprove(piece.id)}
+                    disabled={disapprovePiece.isPending}
+                  >
+                    <XCircle className="w-3 h-3" />
+                    Disapprove
+                  </Button>
+                ) : (
                   <Button
                     size="sm"
                     variant="outline"
@@ -355,34 +400,28 @@ export default function CampaignChannel() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Notify Reviewer</label>
-              {members && members.length > 0 ? (
-                <Select value={reviewMentionEmail} onValueChange={setReviewMentionEmail}>
+              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Send To</label>
+              {reviewableMembers.length > 0 ? (
+                <Select value={reviewerMemberId} onValueChange={setReviewerMemberId}>
                   <SelectTrigger className="rounded-none w-full">
-                    <SelectValue placeholder="Select reviewer..." />
+                    <SelectValue placeholder="Choose reviewer..." />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="">No notification</SelectItem>
-                    {members
-                      .filter(m => m.role === "owner" || m.role === "marketer")
-                      .map(m => (
-                        <SelectItem key={m.id} value={m.email}>
-                          <span className="flex items-center gap-2">
-                            {m.role === "owner" ? <Crown className="w-3 h-3 text-amber-600" /> : <Briefcase className="w-3 h-3 text-blue-600" />}
-                            {m.email}
-                          </span>
-                        </SelectItem>
-                      ))}
+                    {reviewableMembers.map(m => (
+                      <SelectItem key={m.id} value={String(m.id)}>
+                        <span className="flex items-center gap-2">
+                          {m.role === "owner"
+                            ? <Crown className="w-3 h-3 text-amber-600 shrink-0" />
+                            : <Briefcase className="w-3 h-3 text-blue-600 shrink-0" />}
+                          {memberDisplayName(m)}
+                        </span>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               ) : (
-                <Input
-                  value={reviewMentionEmail}
-                  onChange={e => setReviewMentionEmail(e.target.value)}
-                  className="rounded-none"
-                  placeholder="owner@company.com"
-                  type="email"
-                />
+                <p className="text-sm text-muted-foreground italic">No owners or marketers on this campaign yet.</p>
               )}
             </div>
             <div className="space-y-1.5">
@@ -390,13 +429,13 @@ export default function CampaignChannel() {
               <Textarea value={reviewNote} onChange={e => setReviewNote(e.target.value)} className="rounded-none min-h-[60px] resize-none text-sm" placeholder="Add context for the reviewer..." />
             </div>
             <div className="text-[11px] text-muted-foreground bg-secondary/20 p-3 border border-border/40">
-              This will mark the piece as <strong>In Review</strong>. The reviewer will see it on their dashboard.
+              This marks the piece as <strong>In Review</strong>. The selected reviewer receives an email notification.
             </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsReviewOpen(false)}>Cancel</Button>
-            <Button onClick={handleSubmitForReview} disabled={updatePiece.isPending} className="bg-black text-white rounded-none gap-1.5">
-              {updatePiece.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+            <Button onClick={handleSubmitForReview} disabled={submitForReview.isPending} className="bg-black text-white rounded-none gap-1.5">
+              {submitForReview.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
               Submit for Review
             </Button>
           </DialogFooter>

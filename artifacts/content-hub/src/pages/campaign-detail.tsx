@@ -17,7 +17,6 @@ import { useToast } from "@/hooks/use-toast";
 import { StatusBadge, ChannelIcon, getChannelName } from "@/components/channel-icon";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -42,7 +41,10 @@ interface CampaignMember {
   id: number;
   campaignId: number;
   email: string;
+  firstName: string;
+  lastName: string;
   role: MemberRole;
+  permissions: string[];
   accepted: boolean;
   invitedAt: string;
 }
@@ -53,11 +55,25 @@ const ROLE_LABELS: Record<MemberRole, string> = {
   team_member: "Team Member",
 };
 
-const ROLE_PERMISSIONS: Record<MemberRole, string> = {
-  owner: "Can approve, comment, edit",
-  marketer: "Full access — create, edit, comment",
-  team_member: "View & comment only",
+const ALL_PERMISSIONS = [
+  { key: "view",    label: "View content" },
+  { key: "comment", label: "Leave comments" },
+  { key: "create",  label: "Create content pieces" },
+  { key: "edit",    label: "Edit content pieces" },
+  { key: "approve", label: "Approve / disapprove pieces" },
+  { key: "invite",  label: "Invite team members" },
+];
+
+const DEFAULT_PERMISSIONS: Record<MemberRole, string[]> = {
+  owner:       ["view", "comment", "create", "edit", "approve", "invite"],
+  marketer:    ["view", "comment", "create", "edit"],
+  team_member: ["view", "comment"],
 };
+
+function memberDisplayName(m: CampaignMember) {
+  const name = `${m.firstName} ${m.lastName}`.trim();
+  return name || m.email;
+}
 
 function RoleIcon({ role }: { role: MemberRole }) {
   if (role === "owner") return <Crown className="w-3 h-3 text-amber-600" />;
@@ -80,7 +96,7 @@ function useCampaignMembers(campaignId: number) {
 function useInviteMember(campaignId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (body: { email: string; role: MemberRole }) => {
+    mutationFn: async (body: { email: string; firstName: string; lastName: string; role: MemberRole; permissions: string[] }) => {
       const res = await fetch(`/api/campaigns/${campaignId}/members`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -96,11 +112,11 @@ function useInviteMember(campaignId: number) {
 function useUpdateMember(campaignId: number) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async ({ memberId, role }: { memberId: number; role: MemberRole }) => {
+    mutationFn: async ({ memberId, role, permissions }: { memberId: number; role?: MemberRole; permissions?: string[] }) => {
       const res = await fetch(`/api/campaigns/${campaignId}/members/${memberId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ role }),
+        body: JSON.stringify({ role, permissions }),
       });
       if (!res.ok) throw new Error("Failed to update member");
       return res.json() as Promise<CampaignMember>;
@@ -152,7 +168,10 @@ export default function CampaignDetail() {
   const [selectedChannels, setSelectedChannels] = useState<string[]>([]);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteFirstName, setInviteFirstName] = useState("");
+  const [inviteLastName, setInviteLastName] = useState("");
   const [inviteRole, setInviteRole] = useState<MemberRole>("team_member");
+  const [invitePermissions, setInvitePermissions] = useState<string[]>(DEFAULT_PERMISSIONS.team_member);
 
   const initializedForId = useRef<number | null>(null);
 
@@ -207,16 +226,34 @@ export default function CampaignDetail() {
     });
   };
 
+  const handleRoleChange = (role: MemberRole) => {
+    setInviteRole(role);
+    setInvitePermissions(DEFAULT_PERMISSIONS[role]);
+  };
+
+  const togglePermission = (key: string) => {
+    setInvitePermissions(prev =>
+      prev.includes(key) ? prev.filter(p => p !== key) : [...prev, key]
+    );
+  };
+
   const handleInvite = () => {
-    if (!inviteEmail.trim()) return;
-    inviteMember.mutate({ email: inviteEmail.trim(), role: inviteRole }, {
+    if (!inviteEmail.trim() || !inviteFirstName.trim() || !inviteLastName.trim()) return;
+    inviteMember.mutate({
+      email: inviteEmail.trim(),
+      firstName: inviteFirstName.trim(),
+      lastName: inviteLastName.trim(),
+      role: inviteRole,
+      permissions: invitePermissions,
+    }, {
       onSuccess: () => {
-        toast({ title: "Member invited", description: `${inviteEmail} added as ${ROLE_LABELS[inviteRole]}` });
+        toast({ title: "Member added", description: `${inviteFirstName} ${inviteLastName} added as ${ROLE_LABELS[inviteRole]}` });
         setIsInviteOpen(false);
-        setInviteEmail("");
+        setInviteEmail(""); setInviteFirstName(""); setInviteLastName("");
         setInviteRole("team_member");
+        setInvitePermissions(DEFAULT_PERMISSIONS.team_member);
       },
-      onError: () => toast({ title: "Failed to invite", variant: "destructive" }),
+      onError: () => toast({ title: "Failed to add member", variant: "destructive" }),
     });
   };
 
@@ -245,7 +282,6 @@ export default function CampaignDetail() {
   const activeChannels = campaign.channels || [];
   const folder = folders?.find(f => f.id === campaign.folderId);
 
-  // Per-channel piece counts + approval status
   const piecesByChannel = new Map<string, { count: number; allApproved: boolean; hasContent: boolean }>();
   for (const ch of activeChannels) piecesByChannel.set(ch, { count: 0, allApproved: true, hasContent: false });
   for (const p of pieces || []) {
@@ -256,10 +292,13 @@ export default function CampaignDetail() {
     piecesByChannel.set(p.channel, existing);
   }
 
-  // Group members by role
   const owners = members?.filter(m => m.role === "owner") ?? [];
   const marketers = members?.filter(m => m.role === "marketer") ?? [];
   const teamMembers = members?.filter(m => m.role === "team_member") ?? [];
+
+  const folderLabel = folder
+    ? (folder.parentFolderName || folder.title)
+    : null;
 
   return (
     <div className="space-y-10">
@@ -366,50 +405,46 @@ export default function CampaignDetail() {
 
       {/* Info Bar — Folder + Team */}
       <div className="border border-border/60 bg-secondary/5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border/40">
-        {/* Folder */}
         <div className="p-4 space-y-1">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
             <FolderOpen className="w-3 h-3" /> Folder
           </p>
-          {folder ? (
-            <Link href={`/folders/${folder.id}`} className="font-semibold text-sm hover:underline underline-offset-2">{folder.name}</Link>
+          {folderLabel ? (
+            <Link href={`/folders/${folder!.id}`} className="font-semibold text-sm hover:underline underline-offset-2">{folderLabel}</Link>
           ) : (
             <p className="text-sm text-muted-foreground italic">No folder</p>
           )}
         </div>
 
-        {/* Owners */}
         <div className="p-4 space-y-1">
           <p className="text-[10px] font-bold uppercase tracking-widest text-amber-600 flex items-center gap-1.5">
             <Crown className="w-3 h-3" /> Owners
           </p>
           {isMembersLoading ? <Skeleton className="h-4 w-24" /> : owners.length ? (
             <div className="space-y-0.5">
-              {owners.map(m => <p key={m.id} className="text-sm font-medium truncate">{m.email}</p>)}
+              {owners.map(m => <p key={m.id} className="text-sm font-medium truncate">{memberDisplayName(m)}</p>)}
             </div>
           ) : <p className="text-sm text-muted-foreground italic">None assigned</p>}
         </div>
 
-        {/* Marketers */}
         <div className="p-4 space-y-1">
           <p className="text-[10px] font-bold uppercase tracking-widest text-blue-600 flex items-center gap-1.5">
             <Briefcase className="w-3 h-3" /> Marketers
           </p>
           {isMembersLoading ? <Skeleton className="h-4 w-24" /> : marketers.length ? (
             <div className="space-y-0.5">
-              {marketers.map(m => <p key={m.id} className="text-sm font-medium truncate">{m.email}</p>)}
+              {marketers.map(m => <p key={m.id} className="text-sm font-medium truncate">{memberDisplayName(m)}</p>)}
             </div>
           ) : <p className="text-sm text-muted-foreground italic">None assigned</p>}
         </div>
 
-        {/* Team Members */}
         <div className="p-4 space-y-1">
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
             <User className="w-3 h-3" /> Team Members
           </p>
           {isMembersLoading ? <Skeleton className="h-4 w-24" /> : teamMembers.length ? (
             <div className="space-y-0.5">
-              {teamMembers.map(m => <p key={m.id} className="text-sm font-medium truncate">{m.email}</p>)}
+              {teamMembers.map(m => <p key={m.id} className="text-sm font-medium truncate">{memberDisplayName(m)}</p>)}
             </div>
           ) : <p className="text-sm text-muted-foreground italic">None assigned</p>}
         </div>
@@ -417,11 +452,9 @@ export default function CampaignDetail() {
 
       {/* Channel Overview Cards */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold tracking-tight uppercase tracking-widest text-[11px] text-muted-foreground">
-            Channels — {activeChannels.length} active · {pieces?.length ?? 0} pieces total
-          </h2>
-        </div>
+        <h2 className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+          Channels — {activeChannels.length} active · {pieces?.length ?? 0} pieces total
+        </h2>
 
         {activeChannels.length === 0 ? (
           <div className="text-center py-16 border border-dashed border-border/60">
@@ -442,7 +475,6 @@ export default function CampaignDetail() {
               return (
                 <Link key={channel} href={`/campaigns/${id}/channels/${channel}`}>
                   <div className="group border border-border hover:border-black transition-all duration-200 bg-white p-5 flex flex-col gap-4 cursor-pointer">
-                    {/* Top: icon + name + arrow */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 border border-border flex items-center justify-center group-hover:border-black transition-colors">
@@ -452,8 +484,6 @@ export default function CampaignDetail() {
                       </div>
                       <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:text-black group-hover:translate-x-0.5 transition-all" />
                     </div>
-
-                    {/* Stats */}
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-2xl font-bold">{stats.count}</p>
@@ -465,8 +495,6 @@ export default function CampaignDetail() {
                         {statusLabel}
                       </span>
                     </div>
-
-                    {/* Progress bar */}
                     <div className="h-1 bg-secondary/30 w-full">
                       {stats.hasContent && (
                         <div
@@ -484,7 +512,6 @@ export default function CampaignDetail() {
               );
             })}
 
-            {/* Add channel card */}
             <button
               onClick={() => setIsChannelsModalOpen(true)}
               className="border border-dashed border-border/60 hover:border-black transition-colors bg-white p-5 flex items-center justify-center gap-3 text-muted-foreground hover:text-black group"
@@ -512,12 +539,24 @@ export default function CampaignDetail() {
                 <div className="flex items-center gap-3 min-w-0">
                   <RoleIcon role={member.role} />
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold truncate">{member.email}</p>
+                    <p className="text-sm font-semibold truncate">{memberDisplayName(member)}</p>
                     <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">{ROLE_LABELS[member.role]}</p>
+                    {member.permissions.length > 0 && (
+                      <p className="text-[10px] text-muted-foreground/70 mt-0.5 truncate">
+                        {member.permissions.join(", ")}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <Select value={member.role} onValueChange={(r) => updateMember.mutate({ memberId: member.id, role: r as MemberRole })}>
+                  <Select
+                    value={member.role}
+                    onValueChange={(r) => updateMember.mutate({
+                      memberId: member.id,
+                      role: r as MemberRole,
+                      permissions: DEFAULT_PERMISSIONS[r as MemberRole],
+                    })}
+                  >
                     <SelectTrigger className="h-7 text-xs rounded-none w-32 border-border">
                       <SelectValue />
                     </SelectTrigger>
@@ -580,16 +619,39 @@ export default function CampaignDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Invite Member Modal */}
+      {/* Add Member Modal */}
       <Dialog open={isInviteOpen} onOpenChange={setIsInviteOpen}>
         <DialogContent className="rounded-none sm:rounded-none max-w-md">
           <DialogHeader>
             <DialogTitle>Add Team Member</DialogTitle>
             <DialogDescription>
-              Invite someone by their primary email address and assign their role.
+              Enter their name and email, choose a role, then customize their permissions.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-5 py-2">
+          <div className="space-y-4 py-2">
+            {/* Name row */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">First Name</label>
+                <Input
+                  value={inviteFirstName}
+                  onChange={e => setInviteFirstName(e.target.value)}
+                  className="rounded-none"
+                  placeholder="Jane"
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Last Name</label>
+                <Input
+                  value={inviteLastName}
+                  onChange={e => setInviteLastName(e.target.value)}
+                  className="rounded-none"
+                  placeholder="Smith"
+                />
+              </div>
+            </div>
+
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Email Address</label>
               <Input
@@ -597,14 +659,14 @@ export default function CampaignDetail() {
                 value={inviteEmail}
                 onChange={e => setInviteEmail(e.target.value)}
                 className="rounded-none"
-                placeholder="colleague@company.com"
-                autoFocus
+                placeholder="jane@company.com"
                 onKeyDown={e => e.key === 'Enter' && handleInvite()}
               />
             </div>
+
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Role</label>
-              <Select value={inviteRole} onValueChange={v => setInviteRole(v as MemberRole)}>
+              <Select value={inviteRole} onValueChange={v => handleRoleChange(v as MemberRole)}>
                 <SelectTrigger className="rounded-none w-full">
                   <SelectValue />
                 </SelectTrigger>
@@ -614,14 +676,35 @@ export default function CampaignDetail() {
                   <SelectItem value="team_member">Team Member</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-[11px] text-muted-foreground">{ROLE_PERMISSIONS[inviteRole]}</p>
+            </div>
+
+            {/* Custom permissions */}
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Permissions</label>
+              <div className="border border-border/60 divide-y divide-border/40">
+                {ALL_PERMISSIONS.map(({ key, label }) => (
+                  <div
+                    key={key}
+                    className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-secondary/10 transition-colors"
+                    onClick={() => togglePermission(key)}
+                  >
+                    <Checkbox
+                      checked={invitePermissions.includes(key)}
+                      className="rounded-none"
+                      onClick={e => e.stopPropagation()}
+                      onCheckedChange={() => togglePermission(key)}
+                    />
+                    <span className="text-sm">{label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setIsInviteOpen(false)}>Cancel</Button>
             <Button
               onClick={handleInvite}
-              disabled={inviteMember.isPending || !inviteEmail.trim()}
+              disabled={inviteMember.isPending || !inviteEmail.trim() || !inviteFirstName.trim() || !inviteLastName.trim()}
               className="bg-black text-white rounded-none"
             >
               {inviteMember.isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}

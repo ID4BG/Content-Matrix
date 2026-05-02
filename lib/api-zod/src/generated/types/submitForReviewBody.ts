@@ -6,8 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface CreateFolderBody {
-  title: string;
-  parentFolderName?: string | null;
-  description?: string | null;
+export interface SubmitForReviewBody {
+  reviewerMemberId?: number | null;
+  note?: string | null;
 }

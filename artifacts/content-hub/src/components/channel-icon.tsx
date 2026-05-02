@@ -25,11 +25,20 @@ export function ChannelIcon({ channel, className = "w-5 h-5" }: { channel: Conte
   }
 }
 
+const CHANNEL_NAMES: Record<ContentPieceChannel, string> = {
+  instagram_reel: "Instagram",
+  linkedin_post: "LinkedIn",
+  youtube_long: "YouTube Long",
+  youtube_short: "YouTube Short",
+  facebook_carousel: "Facebook Carousel",
+  facebook_group_post: "Facebook Group",
+  reddit_post: "Reddit",
+  threads_post: "Threads",
+  source_article: "Source Article",
+};
+
 export function getChannelName(channel: ContentPieceChannel): string {
-  return channel
-    .split("_")
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
+  return CHANNEL_NAMES[channel] ?? channel.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }
 
 export function StatusBadge({ status }: { status: CampaignStatus | ContentPieceStatus }) {

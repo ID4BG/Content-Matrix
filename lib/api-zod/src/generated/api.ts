@@ -245,7 +245,10 @@ export const ListCampaignMembersResponseItem = zod.object({
   id: zod.number(),
   campaignId: zod.number(),
   email: zod.string(),
+  firstName: zod.string(),
+  lastName: zod.string(),
   role: zod.enum(["owner", "marketer", "team_member"]),
+  permissions: zod.array(zod.string()),
   accepted: zod.boolean(),
   invitedAt: zod.coerce.date(),
 });
@@ -262,7 +265,10 @@ export const InviteCampaignMemberParams = zod.object({
 
 export const InviteCampaignMemberBody = zod.object({
   email: zod.string(),
+  firstName: zod.string(),
+  lastName: zod.string(),
   role: zod.enum(["owner", "marketer", "team_member"]),
+  permissions: zod.array(zod.string()).optional(),
 });
 
 /**
@@ -274,14 +280,18 @@ export const UpdateCampaignMemberParams = zod.object({
 });
 
 export const UpdateCampaignMemberBody = zod.object({
-  role: zod.enum(["owner", "marketer", "team_member"]),
+  role: zod.enum(["owner", "marketer", "team_member"]).optional(),
+  permissions: zod.array(zod.string()).optional(),
 });
 
 export const UpdateCampaignMemberResponse = zod.object({
   id: zod.number(),
   campaignId: zod.number(),
   email: zod.string(),
+  firstName: zod.string(),
+  lastName: zod.string(),
   role: zod.enum(["owner", "marketer", "team_member"]),
+  permissions: zod.array(zod.string()),
   accepted: zod.boolean(),
   invitedAt: zod.coerce.date(),
 });
@@ -520,6 +530,93 @@ export const ApproveContentPieceResponse = zod.object({
 });
 
 /**
+ * @summary Disapprove (revert approval of) a content piece
+ */
+export const DisapproveContentPieceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const DisapproveContentPieceResponse = zod.object({
+  id: zod.number(),
+  campaignId: zod.number(),
+  channel: zod.enum([
+    "instagram_reel",
+    "linkedin_post",
+    "youtube_long",
+    "youtube_short",
+    "facebook_carousel",
+    "facebook_group_post",
+    "reddit_post",
+    "threads_post",
+    "source_article",
+  ]),
+  title: zod.string(),
+  bodyText: zod.string().nullish(),
+  mediaUrl: zod.string().nullish(),
+  mediaType: zod
+    .enum(["image", "video", "carousel", "text", "article"])
+    .nullish(),
+  scheduledDate: zod.coerce.date().nullish(),
+  status: zod.enum([
+    "empty",
+    "uploaded",
+    "in_review",
+    "approved",
+    "needs_revision",
+  ]),
+  commentCount: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  approvedAt: zod.coerce.date().nullish(),
+});
+
+/**
+ * @summary Submit a content piece for review and notify a reviewer by email
+ */
+export const SubmitContentPieceForReviewParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SubmitContentPieceForReviewBody = zod.object({
+  reviewerMemberId: zod.number().nullish(),
+  note: zod.string().nullish(),
+});
+
+export const SubmitContentPieceForReviewResponse = zod.object({
+  id: zod.number(),
+  campaignId: zod.number(),
+  channel: zod.enum([
+    "instagram_reel",
+    "linkedin_post",
+    "youtube_long",
+    "youtube_short",
+    "facebook_carousel",
+    "facebook_group_post",
+    "reddit_post",
+    "threads_post",
+    "source_article",
+  ]),
+  title: zod.string(),
+  bodyText: zod.string().nullish(),
+  mediaUrl: zod.string().nullish(),
+  mediaType: zod
+    .enum(["image", "video", "carousel", "text", "article"])
+    .nullish(),
+  scheduledDate: zod.coerce.date().nullish(),
+  status: zod.enum([
+    "empty",
+    "uploaded",
+    "in_review",
+    "approved",
+    "needs_revision",
+  ]),
+  commentCount: zod.number(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date(),
+  approvedAt: zod.coerce.date().nullish(),
+});
+
+/**
  * @summary List comments for a content piece
  */
 export const ListCommentsQueryParams = zod.object({
@@ -558,6 +655,7 @@ export const ListFoldersResponseItem = zod.object({
   id: zod.number(),
   userId: zod.string(),
   title: zod.string(),
+  parentFolderName: zod.string().nullish(),
   description: zod.string().nullish(),
   shareToken: zod.string().nullish(),
   campaignCount: zod.number(),
@@ -571,6 +669,7 @@ export const ListFoldersResponse = zod.array(ListFoldersResponseItem);
  */
 export const CreateFolderBody = zod.object({
   title: zod.string(),
+  parentFolderName: zod.string().nullish(),
   description: zod.string().nullish(),
 });
 
@@ -583,6 +682,7 @@ export const UpdateFolderParams = zod.object({
 
 export const UpdateFolderBody = zod.object({
   title: zod.string().optional(),
+  parentFolderName: zod.string().nullish(),
   description: zod.string().nullish(),
 });
 
@@ -590,6 +690,7 @@ export const UpdateFolderResponse = zod.object({
   id: zod.number(),
   userId: zod.string(),
   title: zod.string(),
+  parentFolderName: zod.string().nullish(),
   description: zod.string().nullish(),
   shareToken: zod.string().nullish(),
   campaignCount: zod.number(),
@@ -615,6 +716,7 @@ export const ShareFolderLinkResponse = zod.object({
   id: zod.number(),
   userId: zod.string(),
   title: zod.string(),
+  parentFolderName: zod.string().nullish(),
   description: zod.string().nullish(),
   shareToken: zod.string().nullish(),
   campaignCount: zod.number(),
@@ -634,6 +736,7 @@ export const GetSharedFolderResponse = zod.object({
     id: zod.number(),
     userId: zod.string(),
     title: zod.string(),
+    parentFolderName: zod.string().nullish(),
     description: zod.string().nullish(),
     shareToken: zod.string().nullish(),
     campaignCount: zod.number(),

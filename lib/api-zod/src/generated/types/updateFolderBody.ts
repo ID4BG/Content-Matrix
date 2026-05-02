@@ -8,5 +8,6 @@
 
 export interface UpdateFolderBody {
   title?: string;
+  parentFolderName?: string | null;
   description?: string | null;
 }

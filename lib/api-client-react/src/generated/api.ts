@@ -34,6 +34,7 @@ import type {
   ListCommentsParams,
   ListContentPiecesParams,
   SharedFolderView,
+  SubmitForReviewBody,
   UpdateCampaignBody,
   UpdateCampaignChannelsBody,
   UpdateCampaignMemberBody,
@@ -1607,6 +1608,178 @@ export const useApproveContentPiece = <
   TContext
 > => {
   return useMutation(getApproveContentPieceMutationOptions(options));
+};
+
+/**
+ * @summary Disapprove (revert approval of) a content piece
+ */
+export const getDisapproveContentPieceUrl = (id: number) => {
+  return `/api/content-pieces/${id}/disapprove`;
+};
+
+export const disapproveContentPiece = async (
+  id: number,
+  options?: RequestInit,
+): Promise<ContentPiece> => {
+  return customFetch<ContentPiece>(getDisapproveContentPieceUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getDisapproveContentPieceMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disapproveContentPiece>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof disapproveContentPiece>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["disapproveContentPiece"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof disapproveContentPiece>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return disapproveContentPiece(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type DisapproveContentPieceMutationResult = NonNullable<
+  Awaited<ReturnType<typeof disapproveContentPiece>>
+>;
+
+export type DisapproveContentPieceMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Disapprove (revert approval of) a content piece
+ */
+export const useDisapproveContentPiece = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof disapproveContentPiece>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof disapproveContentPiece>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getDisapproveContentPieceMutationOptions(options));
+};
+
+/**
+ * @summary Submit a content piece for review and notify a reviewer by email
+ */
+export const getSubmitContentPieceForReviewUrl = (id: number) => {
+  return `/api/content-pieces/${id}/submit-review`;
+};
+
+export const submitContentPieceForReview = async (
+  id: number,
+  submitForReviewBody: SubmitForReviewBody,
+  options?: RequestInit,
+): Promise<ContentPiece> => {
+  return customFetch<ContentPiece>(getSubmitContentPieceForReviewUrl(id), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(submitForReviewBody),
+  });
+};
+
+export const getSubmitContentPieceForReviewMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitContentPieceForReview>>,
+    TError,
+    { id: number; data: BodyType<SubmitForReviewBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof submitContentPieceForReview>>,
+  TError,
+  { id: number; data: BodyType<SubmitForReviewBody> },
+  TContext
+> => {
+  const mutationKey = ["submitContentPieceForReview"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof submitContentPieceForReview>>,
+    { id: number; data: BodyType<SubmitForReviewBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return submitContentPieceForReview(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SubmitContentPieceForReviewMutationResult = NonNullable<
+  Awaited<ReturnType<typeof submitContentPieceForReview>>
+>;
+export type SubmitContentPieceForReviewMutationBody =
+  BodyType<SubmitForReviewBody>;
+export type SubmitContentPieceForReviewMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Submit a content piece for review and notify a reviewer by email
+ */
+export const useSubmitContentPieceForReview = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof submitContentPieceForReview>>,
+    TError,
+    { id: number; data: BodyType<SubmitForReviewBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof submitContentPieceForReview>>,
+  TError,
+  { id: number; data: BodyType<SubmitForReviewBody> },
+  TContext
+> => {
+  return useMutation(getSubmitContentPieceForReviewMutationOptions(options));
 };
 
 /**

@@ -36,6 +36,7 @@ export * from "./listCommentsParams";
 export * from "./listContentPiecesChannel";
 export * from "./listContentPiecesParams";
 export * from "./sharedFolderView";
+export * from "./submitForReviewBody";
 export * from "./updateCampaignBody";
 export * from "./updateCampaignBodyStatus";
 export * from "./updateCampaignChannelsBody";

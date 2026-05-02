@@ -4,6 +4,7 @@ export const foldersTable = pgTable("folders", {
   id: serial("id").primaryKey(),
   userId: text("user_id").notNull(),
   title: text("title").notNull(),
+  parentFolderName: text("parent_folder_name"),
   description: text("description"),
   shareToken: text("share_token"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

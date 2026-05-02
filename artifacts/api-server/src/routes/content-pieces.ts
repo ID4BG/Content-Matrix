@@ -4,6 +4,8 @@ import {
   contentPiecesTable,
   commentsTable,
   activityTable,
+  campaignMembersTable,
+  campaignsTable,
 } from "@workspace/db";
 import { eq, sql, and } from "drizzle-orm";
 import {
@@ -13,10 +15,22 @@ import {
   UpdateContentPieceParams,
   DeleteContentPieceParams,
   ApproveContentPieceParams,
+  DisapproveContentPieceParams,
+  SubmitContentPieceForReviewParams,
+  SubmitContentPieceForReviewBody,
   ListContentPiecesQueryParams,
 } from "@workspace/api-zod";
+import { sendReviewNotification } from "../email";
 
 const router: IRouter = Router();
+
+async function getPieceWithCommentCount(pieceId: number) {
+  const [countRow] = await db
+    .select({ count: sql<number>`count(*)`.mapWith(Number) })
+    .from(commentsTable)
+    .where(eq(commentsTable.contentPieceId, pieceId));
+  return countRow?.count ?? 0;
+}
 
 router.get("/content-pieces", async (req, res) => {
   const params = ListContentPiecesQueryParams.parse(req.query);
@@ -68,13 +82,8 @@ router.get("/content-pieces/:id", async (req, res) => {
   const { id } = GetContentPieceParams.parse(req.params);
   const [piece] = await db.select().from(contentPiecesTable).where(eq(contentPiecesTable.id, id));
   if (!piece) return res.status(404).json({ error: "Content piece not found" });
-
-  const [countRow] = await db
-    .select({ count: sql<number>`count(*)`.mapWith(Number) })
-    .from(commentsTable)
-    .where(eq(commentsTable.contentPieceId, id));
-
-  res.json({ ...piece, commentCount: countRow?.count ?? 0 });
+  const commentCount = await getPieceWithCommentCount(id);
+  res.json({ ...piece, commentCount });
 });
 
 router.patch("/content-pieces/:id", async (req, res) => {
@@ -98,13 +107,8 @@ router.patch("/content-pieces/:id", async (req, res) => {
     .returning();
 
   if (!updated) return res.status(404).json({ error: "Content piece not found" });
-
-  const [countRow] = await db
-    .select({ count: sql<number>`count(*)`.mapWith(Number) })
-    .from(commentsTable)
-    .where(eq(commentsTable.contentPieceId, id));
-
-  res.json({ ...updated, commentCount: countRow?.count ?? 0 });
+  const commentCount = await getPieceWithCommentCount(id);
+  res.json({ ...updated, commentCount });
 });
 
 router.delete("/content-pieces/:id", async (req, res) => {
@@ -130,12 +134,69 @@ router.post("/content-pieces/:id/approve", async (req, res) => {
     entityTitle: updated.title,
   });
 
-  const [countRow] = await db
-    .select({ count: sql<number>`count(*)`.mapWith(Number) })
-    .from(commentsTable)
-    .where(eq(commentsTable.contentPieceId, id));
+  const commentCount = await getPieceWithCommentCount(id);
+  res.json({ ...updated, commentCount });
+});
 
-  res.json({ ...updated, commentCount: countRow?.count ?? 0 });
+router.post("/content-pieces/:id/disapprove", async (req, res) => {
+  const { id } = DisapproveContentPieceParams.parse(req.params);
+  const [piece] = await db.select().from(contentPiecesTable).where(eq(contentPiecesTable.id, id));
+  if (!piece) return res.status(404).json({ error: "Content piece not found" });
+  if (piece.status !== "approved") return res.status(400).json({ error: "Piece is not approved" });
+
+  const [updated] = await db
+    .update(contentPiecesTable)
+    .set({ status: "needs_revision", approvedAt: null, updatedAt: new Date() })
+    .where(eq(contentPiecesTable.id, id))
+    .returning();
+
+  const commentCount = await getPieceWithCommentCount(id);
+  res.json({ ...updated, commentCount });
+});
+
+router.post("/content-pieces/:id/submit-review", async (req, res) => {
+  const { id } = SubmitContentPieceForReviewParams.parse(req.params);
+  const body = SubmitContentPieceForReviewBody.parse(req.body);
+
+  const [piece] = await db.select().from(contentPiecesTable).where(eq(contentPiecesTable.id, id));
+  if (!piece) return res.status(404).json({ error: "Content piece not found" });
+
+  const [updated] = await db
+    .update(contentPiecesTable)
+    .set({ status: "in_review", updatedAt: new Date() })
+    .where(eq(contentPiecesTable.id, id))
+    .returning();
+
+  if (body.reviewerMemberId) {
+    const [reviewer] = await db
+      .select()
+      .from(campaignMembersTable)
+      .where(eq(campaignMembersTable.id, body.reviewerMemberId));
+
+    if (reviewer) {
+      const [campaign] = await db
+        .select()
+        .from(campaignsTable)
+        .where(eq(campaignsTable.id, piece.campaignId));
+
+      const domain = process.env.REPLIT_DOMAINS?.split(",")[0] ?? "localhost";
+      const pieceUrl = `https://${domain}/campaigns/${piece.campaignId}/pieces/${piece.id}`;
+
+      await sendReviewNotification({
+        to: reviewer.email,
+        reviewerName: reviewer.firstName
+          ? `${reviewer.firstName} ${reviewer.lastName}`.trim()
+          : reviewer.email,
+        pieceTitle: piece.title,
+        campaignTitle: campaign?.title ?? "Campaign",
+        note: body.note,
+        pieceUrl,
+      }).catch(() => {});
+    }
+  }
+
+  const commentCount = await getPieceWithCommentCount(id);
+  res.json({ ...updated, commentCount });
 });
 
 export default router;

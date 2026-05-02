@@ -9,5 +9,8 @@ import type { InviteCampaignMemberBodyRole } from "./inviteCampaignMemberBodyRol
 
 export interface InviteCampaignMemberBody {
   email: string;
+  firstName: string;
+  lastName: string;
   role: InviteCampaignMemberBodyRole;
+  permissions?: string[];
 }

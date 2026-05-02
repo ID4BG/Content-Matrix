@@ -380,6 +380,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/ContentPiece"
 
+  /content-pieces/{id}/disapprove:
+    post:
+      operationId: disapproveContentPiece
+      tags: [content-pieces]
+      summary: Disapprove (revert approval of) a content piece
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Disapproved content piece
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentPiece"
+
+  /content-pieces/{id}/submit-review:
+    post:
+      operationId: submitContentPieceForReview
+      tags: [content-pieces]
+      summary: Submit a content piece for review and notify a reviewer by email
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitForReviewBody"
+      responses:
+        "200":
+          description: Updated content piece now in review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContentPiece"
+
   /comments:
     get:
       operationId: listComments
@@ -669,25 +713,41 @@ components:
           type: integer
         email:
           type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
         role:
           type: string
           enum: [owner, marketer, team_member]
+        permissions:
+          type: array
+          items:
+            type: string
         accepted:
           type: boolean
         invitedAt:
           type: string
           format: date-time
-      required: [id, campaignId, email, role, accepted, invitedAt]
+      required: [id, campaignId, email, firstName, lastName, role, permissions, accepted, invitedAt]
 
     InviteCampaignMemberBody:
       type: object
       properties:
         email:
           type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
         role:
           type: string
           enum: [owner, marketer, team_member]
-      required: [email, role]
+        permissions:
+          type: array
+          items:
+            type: string
+      required: [email, firstName, lastName, role]
 
     UpdateCampaignMemberBody:
       type: object
@@ -695,7 +755,20 @@ components:
         role:
           type: string
           enum: [owner, marketer, team_member]
-      required: [role]
+        permissions:
+          type: array
+          items:
+            type: string
+
+    SubmitForReviewBody:
+      type: object
+      properties:
+        reviewerMemberId:
+          type: integer
+          nullable: true
+        note:
+          type: string
+          nullable: true
 
     ContentPiece:
       type: object
@@ -825,6 +898,9 @@ components:
           type: string
         title:
           type: string
+        parentFolderName:
+          type: string
+          nullable: true
         description:
           type: string
           nullable: true
@@ -846,6 +922,9 @@ components:
       properties:
         title:
           type: string
+        parentFolderName:
+          type: string
+          nullable: true
         description:
           type: string
           nullable: true
@@ -856,6 +935,9 @@ components:
       properties:
         title:
           type: string
+        parentFolderName:
+          type: string
+          nullable: true
         description:
           type: string
           nullable: true
