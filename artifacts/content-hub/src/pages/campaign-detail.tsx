@@ -12,6 +12,7 @@ import {
   useListFolders,
   useApproveCampaign, useDisapproveCampaign, useDeleteCampaign, getListCampaignsQueryKey,
   useUpdateCampaign, useUpdateCampaignChannels, useShareCampaignLink,
+  useUpdateCampaignMember, useDeleteCampaignMember,
   ContentPieceChannel,
 } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
@@ -110,31 +111,6 @@ function useInviteMember(campaignId: number) {
   });
 }
 
-function useUpdateMember(campaignId: number) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ memberId, firstName, lastName, role, permissions }: { memberId: number; firstName?: string; lastName?: string; role?: MemberRole; permissions?: string[] }) => {
-      const res = await fetch(`/api/campaigns/${campaignId}/members/${memberId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstName, lastName, role, permissions }),
-      });
-      if (!res.ok) throw new Error("Failed to update member");
-      return res.json() as Promise<CampaignMember>;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["campaign-members", campaignId] }),
-  });
-}
-
-function useDeleteMember(campaignId: number) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (memberId: number) => {
-      await fetch(`/api/campaigns/${campaignId}/members/${memberId}`, { method: "DELETE" });
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["campaign-members", campaignId] }),
-  });
-}
 
 export default function CampaignDetail() {
   const [, params] = useRoute("/campaigns/:id");
@@ -153,8 +129,16 @@ export default function CampaignDetail() {
   const { data: folders } = useListFolders();
   const { data: members, isLoading: isMembersLoading } = useCampaignMembers(id);
   const inviteMember = useInviteMember(id);
-  const updateMember = useUpdateMember(id);
-  const deleteMember = useDeleteMember(id);
+  const updateMember = useUpdateCampaignMember({
+    mutation: {
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: ["campaign-members", id] }),
+    },
+  });
+  const deleteMember = useDeleteCampaignMember({
+    mutation: {
+      onSuccess: () => queryClient.invalidateQueries({ queryKey: ["campaign-members", id] }),
+    },
+  });
 
   const approveCampaign = useApproveCampaign();
   const disapproveCampaign = useDisapproveCampaign();
@@ -263,18 +247,21 @@ export default function CampaignDetail() {
     setEditMemberFirstName(member.firstName);
     setEditMemberLastName(member.lastName);
     setEditMemberRole(member.role);
-    setEditMemberPermissions([...member.permissions]);
+    setEditMemberPermissions([...(member.permissions ?? [])]);
     setEditMemberOpen(true);
   };
 
   const handleSaveMember = () => {
     if (!editingMember) return;
     updateMember.mutate({
+      id,
       memberId: editingMember.id,
-      firstName: editMemberFirstName.trim(),
-      lastName: editMemberLastName.trim(),
-      role: editMemberRole,
-      permissions: editMemberPermissions,
+      data: {
+        firstName: editMemberFirstName.trim(),
+        lastName: editMemberLastName.trim(),
+        role: editMemberRole,
+        permissions: editMemberPermissions,
+      },
     }, {
       onSuccess: () => {
         toast({ title: "Member updated" });
@@ -752,11 +739,11 @@ export default function CampaignDetail() {
                       <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                         {ROLE_LABELS[member.role]}
                       </span>
-                      {member.permissions.length > 0 && (
+                      {(member.permissions ?? []).length > 0 && (
                         <>
                           <span className="text-muted-foreground/30 text-[10px]">·</span>
                           <span className="text-[10px] text-muted-foreground/60 truncate max-w-[200px]">
-                            {member.permissions.join(", ")}
+                            {(member.permissions ?? []).join(", ")}
                           </span>
                         </>
                       )}
@@ -787,7 +774,7 @@ export default function CampaignDetail() {
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => deleteMember.mutate(member.id)} className="bg-destructive text-white">Remove</AlertDialogAction>
+                        <AlertDialogAction onClick={() => deleteMember.mutate({ id, memberId: member.id })} className="bg-destructive text-white">Remove</AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
