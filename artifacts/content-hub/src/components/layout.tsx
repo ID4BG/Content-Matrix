@@ -2,7 +2,8 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, PlusCircle, FolderKanban, Settings, FolderOpen, User,
-  Bell, X, CheckCircle2, MessageSquare, Upload, CheckCircle, FolderPlus, Sun, Moon,
+  Bell, X, CheckCircle2, MessageSquare, Upload, CheckCircle, FolderPlus,
+  Sun, Moon, Menu,
 } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 import { useUser } from "@clerk/react";
@@ -108,9 +109,7 @@ function NotificationPanel({ onClose }: { onClose: () => void }) {
                       {item.description}
                     </p>
                     <div className="flex items-center gap-2 mt-1.5">
-                      <span
-                        className={`w-1.5 h-1.5 rounded-full shrink-0 ${activityDotColor(item.type)}`}
-                      />
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${activityDotColor(item.type)}`} />
                       <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest truncate">
                         {item.entityTitle}
                       </span>
@@ -144,6 +143,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { user } = useUser();
   const { isDark, toggleTheme } = useTheme();
   const [notifOpen, setNotifOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const { data: activity = [] } = useGetRecentActivity();
   const unreadCount = Math.min(activity.length, 9);
@@ -155,9 +155,60 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/settings",   label: "Settings",   icon: Settings },
   ];
 
+  const closeMobileMenu = () => setMobileMenuOpen(false);
+
   return (
-    <div className="min-h-[100dvh] bg-background flex flex-col md:flex-row">
-      {/* Notification panel overlay */}
+    <div className="min-h-[100dvh] bg-background">
+
+      {/* ── Mobile top bar ── */}
+      <header className="md:hidden fixed top-0 left-0 right-0 z-30 h-14 bg-sidebar border-b border-border flex items-center px-4 gap-3">
+        <button
+          onClick={() => setMobileMenuOpen(true)}
+          className="p-1.5 text-foreground hover:bg-secondary transition-colors"
+          aria-label="Open menu"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+
+        <Link href="/dashboard" className="flex-1 flex items-center h-full py-2 outline-none">
+          <img
+            src={isDark ? "/logo-full.png" : "/logo-light.png"}
+            alt="Content Matrix"
+            className="h-full w-auto object-contain object-left"
+          />
+        </Link>
+
+        <button
+          onClick={toggleTheme}
+          className="p-2 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          aria-label="Toggle dark mode"
+        >
+          {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </button>
+
+        <button
+          onClick={() => setNotifOpen(o => !o)}
+          className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+          aria-label="Activity feed"
+        >
+          <Bell className="w-4 h-4" />
+          {unreadCount > 0 && !notifOpen && (
+            <span className="absolute top-0.5 right-0.5 bg-foreground text-background text-[8px] font-bold w-3.5 h-3.5 flex items-center justify-center">
+              {unreadCount}
+            </span>
+          )}
+        </button>
+      </header>
+
+      {/* ── Mobile drawer overlay ── */}
+      {mobileMenuOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/50 md:hidden"
+          onClick={closeMobileMenu}
+        />
+      )}
+
+      {/* ── Notification panel overlay ── */}
       {notifOpen && (
         <>
           <div
@@ -168,101 +219,127 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </>
       )}
 
-      <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-border bg-sidebar shrink-0 flex flex-col h-auto md:h-[100dvh] md:sticky md:top-0">
-        {/* Logo — swap based on theme */}
-        <div className="overflow-hidden border-b border-border/40" style={{ height: '72px' }}>
-          <Link href="/dashboard" className="block w-full h-full outline-none">
-            <img
-              src={isDark ? "/logo-full.png" : "/logo-light.png"}
-              alt="Content Matrix"
-              style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center center' }}
-            />
-          </Link>
-        </div>
+      <div className="flex min-h-[100dvh]">
 
-        <nav className="flex-1 px-4 pb-4 overflow-x-auto md:overflow-visible flex md:flex-col gap-1">
-          <div className="text-xs font-semibold text-muted-foreground uppercase tracking-widest px-4 mb-4 hidden md:block mt-4">
-            Menu
-          </div>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = location === item.href || (item.href !== "/" && location.startsWith(item.href));
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors ${
-                  active
-                    ? "bg-secondary text-secondary-foreground border-l-2 border-black"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary/50 border-l-2 border-transparent"
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-
-        <div className="p-5 hidden md:flex flex-col gap-3 border-t border-border/50">
-          {/* New Campaign + Notifications + Theme row */}
-          <div className="flex gap-2">
-            <Link
-              href="/campaigns/new"
-              className="flex-1 flex items-center justify-center gap-2 bg-foreground text-background hover:opacity-80 px-3 py-2.5 text-xs font-semibold uppercase tracking-wider transition-colors"
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              New Campaign
+        {/* ── Sidebar ── */}
+        <aside
+          className={`
+            fixed md:sticky top-0 left-0 z-50 w-72 md:w-64
+            bg-sidebar border-r border-border
+            flex flex-col h-[100dvh]
+            transition-transform duration-300 ease-in-out
+            md:translate-x-0 md:transition-none
+            ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
+          `}
+        >
+          {/* Logo row — with close button on mobile */}
+          <div className="overflow-hidden border-b border-border/40 flex items-center" style={{ height: '72px' }}>
+            <Link href="/dashboard" onClick={closeMobileMenu} className="flex-1 block h-full outline-none">
+              <img
+                src={isDark ? "/logo-full.png" : "/logo-light.png"}
+                alt="Content Matrix"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center center' }}
+              />
             </Link>
             <button
-              onClick={toggleTheme}
-              className="flex items-center justify-center w-10 h-10 border border-border hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Toggle dark mode"
+              onClick={closeMobileMenu}
+              className="md:hidden shrink-0 p-3 mr-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
+              aria-label="Close menu"
             >
-              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-            </button>
-            <button
-              onClick={() => setNotifOpen(o => !o)}
-              className={`relative flex items-center justify-center w-10 h-10 border transition-colors ${
-                notifOpen
-                  ? "bg-foreground text-background border-foreground"
-                  : "border-border hover:bg-secondary text-muted-foreground hover:text-foreground"
-              }`}
-              aria-label="Activity feed"
-            >
-              <Bell className="w-4 h-4" />
-              {unreadCount > 0 && !notifOpen && (
-                <span className="absolute -top-1 -right-1 bg-foreground text-background text-[9px] font-bold w-4 h-4 flex items-center justify-center">
-                  {unreadCount}
-                </span>
-              )}
+              <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Attribution */}
-          <p className="text-[9px] text-muted-foreground/50 font-medium tracking-widest uppercase text-center pb-1">
-            Made by <span className="text-muted-foreground/70">Arnela</span>, for Marketers — with love
-          </p>
-
-          {/* User row */}
-          <Link href="/settings" className="flex items-center gap-3 group py-1">
-            <Avatar className="w-8 h-8 border border-border rounded-none">
-              <AvatarImage src={user?.imageUrl} />
-              <AvatarFallback className="bg-secondary text-xs rounded-none"><User className="w-4 h-4" /></AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col overflow-hidden">
-              <span className="text-sm font-semibold truncate">{user?.firstName || 'User'}</span>
-              <span className="text-xs text-muted-foreground truncate">{user?.emailAddresses[0]?.emailAddress}</span>
+          {/* Nav */}
+          <nav className="flex-1 px-4 py-4 overflow-y-auto flex flex-col gap-1">
+            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-widest px-4 mb-3">
+              Menu
             </div>
-          </Link>
-        </div>
-      </aside>
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const active = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={closeMobileMenu}
+                  className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors ${
+                    active
+                      ? "bg-secondary text-secondary-foreground border-l-2 border-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/50 border-l-2 border-transparent"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
 
-      <main className="flex-1 w-full min-w-0 max-w-full">
-        <div className="p-6 md:p-12 lg:p-16 max-w-6xl mx-auto w-full">
-          {children}
-        </div>
-      </main>
+          {/* Footer */}
+          <div className="p-5 flex flex-col gap-3 border-t border-border/50">
+            {/* New Campaign + Theme + Bell */}
+            <div className="flex gap-2">
+              <Link
+                href="/campaigns/new"
+                onClick={closeMobileMenu}
+                className="flex-1 flex items-center justify-center gap-2 bg-foreground text-background hover:opacity-80 px-3 py-2.5 text-xs font-semibold uppercase tracking-wider transition-colors"
+              >
+                <PlusCircle className="w-3.5 h-3.5" />
+                New Campaign
+              </Link>
+              <button
+                onClick={toggleTheme}
+                className="flex items-center justify-center w-10 h-10 border border-border hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Toggle dark mode"
+              >
+                {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
+              <button
+                onClick={() => { setNotifOpen(o => !o); closeMobileMenu(); }}
+                className={`relative flex items-center justify-center w-10 h-10 border transition-colors ${
+                  notifOpen
+                    ? "bg-foreground text-background border-foreground"
+                    : "border-border hover:bg-secondary text-muted-foreground hover:text-foreground"
+                }`}
+                aria-label="Activity feed"
+              >
+                <Bell className="w-4 h-4" />
+                {unreadCount > 0 && !notifOpen && (
+                  <span className="absolute -top-1 -right-1 bg-foreground text-background text-[9px] font-bold w-4 h-4 flex items-center justify-center">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Attribution */}
+            <p className="text-[9px] text-muted-foreground/50 font-medium tracking-widest uppercase text-center pb-1">
+              Made by <span className="text-muted-foreground/70">Arnela</span>, for Marketers — with love
+            </p>
+
+            {/* User row */}
+            <Link href="/settings" onClick={closeMobileMenu} className="flex items-center gap-3 group py-1">
+              <Avatar className="w-8 h-8 border border-border rounded-none">
+                <AvatarImage src={user?.imageUrl} />
+                <AvatarFallback className="bg-secondary text-xs rounded-none"><User className="w-4 h-4" /></AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col overflow-hidden">
+                <span className="text-sm font-semibold truncate">{user?.firstName || 'User'}</span>
+                <span className="text-xs text-muted-foreground truncate">{user?.emailAddresses[0]?.emailAddress}</span>
+              </div>
+            </Link>
+          </div>
+        </aside>
+
+        {/* ── Main content ── */}
+        <main className="flex-1 w-full min-w-0 max-w-full pt-14 md:pt-0">
+          <div className="p-6 md:p-12 lg:p-16 max-w-6xl mx-auto w-full">
+            {children}
+          </div>
+        </main>
+
+      </div>
     </div>
   );
 }
