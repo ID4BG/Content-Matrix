@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import {
   ArrowLeft, Loader2, CheckCircle2, Trash2, Clock, Plus, Edit2, CheckCircle,
   Settings2, UserPlus, X, ChevronRight, FolderOpen, Crown, Briefcase, User, CalendarDays, KanbanSquare, Share2, Copy, Check,
+  ChevronDown, FolderPlus, FolderMinus,
 } from "lucide-react";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import {
@@ -176,6 +177,8 @@ export default function CampaignDetail() {
   const [invitePermissions, setInvitePermissions] = useState<string[]>(DEFAULT_PERMISSIONS.team_member);
 
   const [copied, setCopied] = useState(false);
+  const [folderPickerOpen, setFolderPickerOpen] = useState(false);
+  const folderPickerRef = useRef<HTMLDivElement>(null);
   const [editingMemberId, setEditingMemberId] = useState<number | null>(null);
   const [editMemberFirstName, setEditMemberFirstName] = useState("");
   const [editMemberLastName, setEditMemberLastName] = useState("");
@@ -192,6 +195,24 @@ export default function CampaignDetail() {
       setSelectedChannels(campaign.channels || []);
     }
   }, [campaign, id]);
+
+  const handleMoveToFolder = (folderId: number | null) => {
+    setFolderPickerOpen(false);
+    updateCampaign.mutate(
+      { id, data: { folderId } },
+      { onSuccess: (u) => queryClient.setQueryData(getGetCampaignQueryKey(id), u) }
+    );
+  };
+
+  useEffect(() => {
+    function handleOutside(e: MouseEvent) {
+      if (folderPickerRef.current && !folderPickerRef.current.contains(e.target as Node)) {
+        setFolderPickerOpen(false);
+      }
+    }
+    if (folderPickerOpen) document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [folderPickerOpen]);
 
   const handleSaveTitle = () => {
     setIsEditingTitle(false);
@@ -517,14 +538,60 @@ export default function CampaignDetail() {
 
       {/* Info Bar — Folder + Team */}
       <div className="border border-border/60 bg-secondary/5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-border/40">
-        <div className="p-4 space-y-1">
+        <div className="p-4 space-y-1 relative" ref={folderPickerRef}>
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
             <FolderOpen className="w-3 h-3" /> Folder
           </p>
-          {folderLabel ? (
-            <Link href={`/folders/${folder!.id}`} className="font-semibold text-sm hover:underline underline-offset-2">{folderLabel}</Link>
-          ) : (
-            <p className="text-sm text-muted-foreground italic">No folder</p>
+          <button
+            onClick={() => setFolderPickerOpen(o => !o)}
+            className="flex items-center gap-1.5 group text-left w-full"
+          >
+            {updateCampaign.isPending ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+            ) : folderLabel ? (
+              <span className="font-semibold text-sm group-hover:underline underline-offset-2 truncate">{folderLabel}</span>
+            ) : (
+              <span className="text-sm text-muted-foreground italic group-hover:text-foreground transition-colors">
+                Add to folder…
+              </span>
+            )}
+            <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0 group-hover:text-foreground transition-colors" />
+          </button>
+
+          {folderPickerOpen && (
+            <div className="absolute left-0 top-full mt-1 z-50 w-56 bg-popover border border-border shadow-md">
+              <div className="p-1.5 border-b border-border">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-2 py-1">
+                  Move to folder
+                </p>
+              </div>
+              <div className="max-h-52 overflow-y-auto">
+                {!folders?.length ? (
+                  <p className="text-xs text-muted-foreground px-3 py-3 italic">No folders yet</p>
+                ) : folders.map(f => (
+                  <button
+                    key={f.id}
+                    onClick={() => handleMoveToFolder(f.id)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-secondary transition-colors text-left ${campaign.folderId === f.id ? "font-semibold" : ""}`}
+                  >
+                    <FolderOpen className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                    <span className="truncate">{f.parentFolderName || f.title}</span>
+                    {campaign.folderId === f.id && <Check className="w-3.5 h-3.5 ml-auto shrink-0 text-foreground" />}
+                  </button>
+                ))}
+              </div>
+              {campaign.folderId != null && (
+                <div className="border-t border-border p-1">
+                  <button
+                    onClick={() => handleMoveToFolder(null)}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                  >
+                    <FolderMinus className="w-3.5 h-3.5 shrink-0" />
+                    Remove from folder
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </div>
 
