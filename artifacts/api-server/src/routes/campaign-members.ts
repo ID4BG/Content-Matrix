@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { campaignMembersTable } from "@workspace/db";
+import { campaignMembersTable, campaignsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import {
   InviteCampaignMemberBody,
@@ -11,6 +11,7 @@ import {
   ListCampaignMembersParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
+import { sendInviteEmail } from "../email";
 
 const router: IRouter = Router();
 
@@ -47,6 +48,23 @@ router.post("/campaigns/:id/members", requireAuth, async (req, res) => {
       permissions,
     })
     .returning();
+
+  const [campaign] = await db
+    .select({ title: campaignsTable.title })
+    .from(campaignsTable)
+    .where(eq(campaignsTable.id, id));
+
+  const domain = process.env.REPLIT_DOMAINS?.split(",")[0] ?? "localhost";
+  const appUrl = `https://${domain}/sign-in`;
+
+  sendInviteEmail({
+    to: body.email,
+    inviteeName: body.firstName || undefined,
+    campaignTitle: campaign?.title,
+    appUrl,
+    role: body.role,
+  }).catch(() => {});
+
   res.status(201).json(member);
 });
 

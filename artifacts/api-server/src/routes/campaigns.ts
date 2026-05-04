@@ -4,9 +4,11 @@ import {
   campaignsTable,
   contentPiecesTable,
   activityTable,
+  campaignMembersTable,
 } from "@workspace/db";
-import { eq, sql, and } from "drizzle-orm";
+import { eq, sql, and, or, inArray } from "drizzle-orm";
 import { randomBytes } from "crypto";
+import { clerkClient } from "@clerk/express";
 import {
   CreateCampaignBody,
   UpdateCampaignBody,
@@ -36,19 +38,43 @@ async function getPieceCount(campaignId: number): Promise<number> {
   return row?.count ?? 0;
 }
 
+async function getMemberCampaignIds(userId: string): Promise<number[]> {
+  try {
+    const clerkUser = await clerkClient.users.getUser(userId);
+    const email = clerkUser.emailAddresses?.[0]?.emailAddress;
+    if (!email) return [];
+    const rows = await db
+      .select({ campaignId: campaignMembersTable.campaignId })
+      .from(campaignMembersTable)
+      .where(and(
+        eq(campaignMembersTable.email, email),
+        eq(campaignMembersTable.accepted, true),
+      ));
+    return rows.map(r => r.campaignId);
+  } catch {
+    return [];
+  }
+}
+
 router.get("/campaigns", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
   const { folderId } = ListCampaignsQueryParams.parse(req.query);
 
-  const conditions = [eq(campaignsTable.userId, userId)];
-  if (folderId != null) {
-    conditions.push(eq(campaignsTable.folderId, folderId));
-  }
+  const memberCampaignIds = await getMemberCampaignIds(userId);
+
+  const ownerCondition = eq(campaignsTable.userId, userId);
+  const accessCondition = memberCampaignIds.length > 0
+    ? or(ownerCondition, inArray(campaignsTable.id, memberCampaignIds))
+    : ownerCondition;
+
+  const whereClause = folderId != null
+    ? and(accessCondition, eq(campaignsTable.folderId, folderId))
+    : accessCondition;
 
   const campaigns = await db
     .select()
     .from(campaignsTable)
-    .where(and(...conditions))
+    .where(whereClause)
     .orderBy(sql`${campaignsTable.createdAt} desc`);
 
   const counts = await db
@@ -86,9 +112,17 @@ router.get("/campaigns/:id", requireAuth, async (req, res) => {
   const [campaign] = await db
     .select()
     .from(campaignsTable)
-    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.userId, userId)));
+    .where(eq(campaignsTable.id, id));
 
   if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+
+  if (campaign.userId !== userId) {
+    const memberIds = await getMemberCampaignIds(userId);
+    if (!memberIds.includes(id)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+  }
+
   res.json(withCount(campaign, await getPieceCount(id)));
 });
 

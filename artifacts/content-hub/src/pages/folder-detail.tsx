@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { Link, useRoute } from "wouter";
-import { ArrowLeft, Share2, Copy, Check, Loader2, Folder, ExternalLink, FolderKanban, Users, Mail, Lock } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import {
+  ArrowLeft, Share2, Copy, Check, Loader2, Folder, ExternalLink,
+  FolderKanban, Users, Mail, Lock, UserPlus, Send,
+} from "lucide-react";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import {
   useListFolders,
   getListFoldersQueryKey,
@@ -17,6 +20,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StatusBadge } from "@/components/channel-icon";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 
 interface CampaignMember {
   id: number;
@@ -26,6 +32,7 @@ interface CampaignMember {
   lastName: string;
   role: string;
   permissions: string[];
+  accepted: boolean;
 }
 
 function memberDisplayName(m: CampaignMember) {
@@ -62,6 +69,12 @@ export default function FolderDetail() {
   const [copied, setCopied] = useState(false);
   const [copiedMemberId, setCopiedMemberId] = useState<string | null>(null);
 
+  // Invite form state
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteFirstName, setInviteFirstName] = useState("");
+  const [inviteLastName, setInviteLastName] = useState("");
+  const [inviteRole, setInviteRole] = useState("team_member");
+
   const { data: folders, isLoading: isFoldersLoading } = useListFolders({
     query: { queryKey: getListFoldersQueryKey() },
   });
@@ -74,10 +87,51 @@ export default function FolderDetail() {
   );
 
   const campaignIds = campaigns?.map(c => c.id) ?? [];
-  const { data: members } = useCampaignMembers(campaignIds);
+  const { data: members, refetch: refetchMembers } = useCampaignMembers(campaignIds);
 
   const updateFolder = useUpdateFolder();
   const shareFolderLink = useShareFolderLink();
+
+  const inviteToFolder = useMutation({
+    mutationFn: async (data: { email: string; firstName: string; lastName: string; role: string }) => {
+      const res = await fetch(`/api/folders/${id}/invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to send invite");
+      }
+      return res.json() as Promise<{ invited: number; total: number; alreadyMember: number }>;
+    },
+    onSuccess: (result) => {
+      setInviteEmail("");
+      setInviteFirstName("");
+      setInviteLastName("");
+      setInviteRole("team_member");
+      refetchMembers();
+      if (result.invited === 0) {
+        toast({ title: "Already a member", description: "This person is already invited to all campaigns in this folder." });
+      } else {
+        toast({
+          title: `Invited to ${result.invited} campaign${result.invited !== 1 ? "s" : ""}`,
+          description: "They'll receive an email with a link to sign in and join.",
+        });
+      }
+    },
+    onError: (err: Error) => toast({ title: "Invite failed", description: err.message, variant: "destructive" }),
+  });
+
+  const handleInvite = () => {
+    if (!inviteEmail.trim()) return;
+    inviteToFolder.mutate({
+      email: inviteEmail.trim(),
+      firstName: inviteFirstName.trim(),
+      lastName: inviteLastName.trim(),
+      role: inviteRole,
+    });
+  };
 
   const shareUrl = folder?.shareToken
     ? `${window.location.origin}/shared/folder/${folder.shareToken}`
@@ -190,14 +244,127 @@ export default function FolderDetail() {
         </div>
       </header>
 
+      {/* Invite to Folder */}
+      <div className="space-y-4">
+        <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+          <UserPlus className="w-3.5 h-3.5" />
+          Invite to Folder
+        </h2>
+
+        <div className="border border-border bg-card p-5 space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Invite someone to all campaigns in this folder. They'll receive an email and see the campaigns after signing in.
+          </p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">First Name</label>
+              <Input
+                value={inviteFirstName}
+                onChange={e => setInviteFirstName(e.target.value)}
+                className="rounded-none"
+                placeholder="Jane"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Last Name</label>
+              <Input
+                value={inviteLastName}
+                onChange={e => setInviteLastName(e.target.value)}
+                className="rounded-none"
+                placeholder="Smith"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Email *</label>
+              <Input
+                type="email"
+                value={inviteEmail}
+                onChange={e => setInviteEmail(e.target.value)}
+                className="rounded-none"
+                placeholder="jane@company.com"
+                onKeyDown={e => { if (e.key === "Enter") handleInvite(); }}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Role</label>
+              <Select value={inviteRole} onValueChange={setInviteRole}>
+                <SelectTrigger className="rounded-none w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="owner">Owner</SelectItem>
+                  <SelectItem value="marketer">Marketer</SelectItem>
+                  <SelectItem value="team_member">Team Member</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <Button
+            onClick={handleInvite}
+            disabled={!inviteEmail.trim() || inviteToFolder.isPending || campaigns?.length === 0}
+            className="bg-black text-white rounded-none gap-2 text-xs font-bold uppercase tracking-wider"
+          >
+            {inviteToFolder.isPending
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <Send className="w-3.5 h-3.5" />}
+            {inviteToFolder.isPending ? "Sending…" : `Invite to All ${campaigns?.length ?? 0} Campaign${campaigns?.length !== 1 ? "s" : ""}`}
+          </Button>
+
+          {campaigns?.length === 0 && (
+            <p className="text-xs text-amber-600 font-medium">Add campaigns to this folder first before inviting members.</p>
+          )}
+        </div>
+
+        {/* Current members list */}
+        {members && members.length > 0 && (
+          <div className="border border-border bg-card">
+            <div className="px-5 py-3 border-b border-border/40 bg-secondary/5">
+              <p className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground">Current Members</p>
+            </div>
+            <div className="divide-y divide-border/30">
+              {members.map(member => (
+                <div key={member.id} className="px-5 py-3 flex items-center gap-3">
+                  <div className="w-7 h-7 bg-secondary/30 border border-border/40 flex items-center justify-center shrink-0">
+                    <span className="text-[10px] font-bold uppercase">
+                      {(member.firstName || member.email).charAt(0)}
+                    </span>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate">{memberDisplayName(member)}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <Mail className="w-2.5 h-2.5 text-muted-foreground shrink-0" />
+                      <p className="text-[10px] text-muted-foreground truncate">{member.email}</p>
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 border border-border/40 px-1.5 py-0.5 shrink-0">
+                        {member.role.replace("_", " ")}
+                      </span>
+                      <span className={`text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 shrink-0 ${
+                        member.accepted
+                          ? "text-emerald-700 border border-emerald-200 bg-emerald-50"
+                          : "text-amber-700 border border-amber-200 bg-amber-50"
+                      }`}>
+                        {member.accepted ? "Accepted" : "Pending"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Sharing Section */}
       <div className="space-y-6">
         <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
           <Share2 className="w-3.5 h-3.5" />
-          Sharing
+          View-Only Link
         </h2>
 
-        {/* External view-only link */}
         <div className="border border-border bg-card p-5 space-y-4">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 border border-border flex items-center justify-center shrink-0">
@@ -242,79 +409,6 @@ export default function FolderDetail() {
               {shareFolderLink.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
               Generate Share Link
             </Button>
-          )}
-        </div>
-
-        {/* Share with team members */}
-        <div className="border border-border bg-card">
-          <div className="px-5 py-4 border-b border-border/40 bg-secondary/5 flex items-center gap-3">
-            <Users className="w-3.5 h-3.5 text-muted-foreground" />
-            <div>
-              <p className="font-bold text-[10px] uppercase tracking-widest">Share with Campaign Members</p>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
-                Copy the view-only link to share with specific members from campaigns in this folder.
-              </p>
-            </div>
-          </div>
-
-          {!shareUrl ? (
-            <div className="px-5 py-8 text-center">
-              <Lock className="w-8 h-8 mx-auto text-muted-foreground/30 mb-3" />
-              <p className="text-sm text-muted-foreground font-medium">Generate a share link first</p>
-              <p className="text-xs text-muted-foreground/70 mt-1">You need a view-only link before you can share it with members.</p>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleShare}
-                disabled={shareFolderLink.isPending}
-                className="mt-4 rounded-none gap-1.5 text-xs"
-              >
-                {shareFolderLink.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Share2 className="w-3.5 h-3.5" />}
-                Generate Link
-              </Button>
-            </div>
-          ) : members && members.length > 0 ? (
-            <div className="divide-y divide-border/30">
-              {members.map(member => (
-                <div key={member.id} className="px-5 py-3 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-7 h-7 bg-secondary/30 border border-border/40 flex items-center justify-center shrink-0">
-                      <span className="text-[10px] font-bold uppercase">
-                        {(member.firstName || member.email).charAt(0)}
-                      </span>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold truncate">{memberDisplayName(member)}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <Mail className="w-2.5 h-2.5 text-muted-foreground shrink-0" />
-                        <p className="text-[10px] text-muted-foreground truncate">{member.email}</p>
-                        <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 border border-border/40 px-1.5 py-0.5 shrink-0">
-                          {member.role.replace("_", " ")}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-none gap-1.5 text-xs h-7 border-border shrink-0"
-                    onClick={() => handleCopyForMember(String(member.id))}
-                  >
-                    {copiedMemberId === String(member.id)
-                      ? <><Check className="w-3 h-3 text-emerald-600" /> Copied</>
-                      : <><Copy className="w-3 h-3" /> Copy Link</>}
-                  </Button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="px-5 py-8 text-center">
-              <Users className="w-8 h-8 mx-auto text-muted-foreground/30 mb-3" />
-              <p className="text-sm text-muted-foreground font-medium">No team members found</p>
-              <p className="text-xs text-muted-foreground/70 mt-1">
-                Add members to campaigns in this folder to share with them here.
-              </p>
-            </div>
           )}
         </div>
       </div>

@@ -1,6 +1,9 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { foldersTable, campaignsTable, activityTable, contentPiecesTable } from "@workspace/db";
+import {
+  foldersTable, campaignsTable, activityTable, contentPiecesTable,
+  campaignMembersTable,
+} from "@workspace/db";
 import { eq, sql, and } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import {
@@ -12,8 +15,15 @@ import {
   GetSharedFolderParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
+import { sendInviteEmail } from "../email";
 
 const router: IRouter = Router();
+
+const DEFAULT_PERMISSIONS: Record<string, string[]> = {
+  owner: ["view", "comment", "edit", "create", "approve", "invite"],
+  marketer: ["view", "comment", "edit", "create"],
+  team_member: ["view", "comment"],
+};
 
 async function getFolderWithCount(folder: typeof foldersTable.$inferSelect) {
   const [row] = await db
@@ -87,6 +97,74 @@ router.post("/folders/:id/share", requireAuth, async (req, res) => {
 
   if (!updated) return res.status(404).json({ error: "Folder not found" });
   res.json(await getFolderWithCount(updated));
+});
+
+router.post("/folders/:id/invite", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
+  const folderId = parseInt(req.params.id, 10);
+  if (isNaN(folderId)) return res.status(400).json({ error: "Invalid folder id" });
+
+  const [folder] = await db
+    .select()
+    .from(foldersTable)
+    .where(and(eq(foldersTable.id, folderId), eq(foldersTable.userId, userId)));
+
+  if (!folder) return res.status(404).json({ error: "Folder not found" });
+
+  const { email, firstName = "", lastName = "", role = "team_member" } = req.body as {
+    email?: string; firstName?: string; lastName?: string; role?: string;
+  };
+
+  if (!email) return res.status(400).json({ error: "email is required" });
+
+  const permissions = DEFAULT_PERMISSIONS[role] ?? ["view"];
+
+  const folderCampaigns = await db
+    .select()
+    .from(campaignsTable)
+    .where(eq(campaignsTable.folderId, folderId));
+
+  let invitedCount = 0;
+  for (const campaign of folderCampaigns) {
+    const [existing] = await db
+      .select({ id: campaignMembersTable.id })
+      .from(campaignMembersTable)
+      .where(
+        and(
+          eq(campaignMembersTable.campaignId, campaign.id),
+          eq(campaignMembersTable.email, email),
+        )
+      );
+
+    if (!existing) {
+      await db.insert(campaignMembersTable).values({
+        campaignId: campaign.id,
+        email,
+        firstName,
+        lastName,
+        role,
+        permissions,
+      });
+      invitedCount++;
+    }
+  }
+
+  const domain = process.env.REPLIT_DOMAINS?.split(",")[0] ?? "localhost";
+  const appUrl = `https://${domain}/sign-in`;
+
+  sendInviteEmail({
+    to: email,
+    inviteeName: firstName || undefined,
+    folderName: folder.title,
+    appUrl,
+    role,
+  }).catch(() => {});
+
+  res.status(201).json({
+    invited: invitedCount,
+    total: folderCampaigns.length,
+    alreadyMember: folderCampaigns.length - invitedCount,
+  });
 });
 
 router.get("/shared/folder/:token", async (req, res) => {
