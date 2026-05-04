@@ -446,7 +446,7 @@ export default function PieceDetail() {
         {/* Sidebar */}
         <div className="w-full lg:w-72 shrink-0 space-y-6">
           {/* Actions */}
-          <div className="border border-border bg-white p-5 space-y-3">
+          <div className="border border-border bg-card p-5 space-y-3">
             <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Actions</h3>
 
             {piece.status !== 'approved' && (
@@ -482,7 +482,7 @@ export default function PieceDetail() {
           </div>
 
           {/* Comments */}
-          <div className="border border-border bg-white flex flex-col">
+          <div className="border border-border bg-card flex flex-col">
             <div className="px-5 py-3 border-b border-border flex items-center gap-2 bg-secondary/10">
               <MessageSquare className="w-4 h-4" />
               <h3 className="text-[10px] font-bold uppercase tracking-widest">Comments ({piece.commentCount})</h3>
@@ -529,7 +529,7 @@ export default function PieceDetail() {
                         <FormControl>
                           <Textarea
                             placeholder="Add a comment..."
-                            className="min-h-[60px] resize-none text-xs rounded-none bg-white"
+                            className="min-h-[60px] resize-none text-xs rounded-none bg-card"
                             {...field}
                           />
                         </FormControl>

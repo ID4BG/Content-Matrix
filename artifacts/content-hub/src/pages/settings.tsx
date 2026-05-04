@@ -63,7 +63,7 @@ export default function Settings() {
         <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Profile</h2>
 
         {!isLoaded ? (
-          <div className="border border-border p-6 flex items-center gap-5 bg-white">
+          <div className="border border-border p-6 flex items-center gap-5 bg-card">
             <Skeleton className="w-16 h-16 rounded-none" />
             <div className="space-y-2 flex-1">
               <Skeleton className="h-5 w-40" />
@@ -71,7 +71,7 @@ export default function Settings() {
             </div>
           </div>
         ) : (
-          <div className="border border-border bg-white p-6 flex items-center gap-5">
+          <div className="border border-border bg-card p-6 flex items-center gap-5">
             <Avatar className="w-16 h-16 border border-border rounded-none">
               <AvatarImage src={user?.imageUrl} />
               <AvatarFallback className="bg-secondary text-lg font-bold rounded-none">
@@ -94,7 +94,7 @@ export default function Settings() {
           </div>
         )}
 
-        <div className="border border-border bg-white divide-y divide-border">
+        <div className="border border-border bg-card divide-y divide-border">
           {/* Display Name — editable */}
           <div className="px-6 py-5">
             {isEditingName ? (
@@ -198,7 +198,7 @@ export default function Settings() {
 
       <section className="space-y-4 pb-8 border-b border-border/50">
         <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Danger Zone</h2>
-        <div className="border border-border bg-white p-6 flex items-center justify-between">
+        <div className="border border-border bg-card p-6 flex items-center justify-between">
           <div>
             <p className="font-bold text-sm text-foreground">Sign Out</p>
             <p className="text-sm text-muted-foreground mt-0.5">You'll be redirected to the home page.</p>
@@ -216,7 +216,7 @@ export default function Settings() {
 
       <section className="space-y-4">
         <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">About</h2>
-        <div className="border border-border bg-white p-6 space-y-3">
+        <div className="border border-border bg-card p-6 space-y-3">
           <div className="overflow-hidden -mx-6 -mt-6 mb-4" style={{ height: '64px' }}>
             <img
               src="/logo-light.png"

@@ -51,10 +51,10 @@ function NotificationPanel({ onClose }: { onClose: () => void }) {
   return (
     <div
       ref={panelRef}
-      className="fixed top-0 left-0 md:left-64 bottom-0 z-50 w-80 bg-white border-r border-border shadow-xl flex flex-col"
+      className="fixed top-0 left-0 md:left-64 bottom-0 z-50 w-80 bg-background border-r border-border shadow-xl flex flex-col"
       style={{ maxHeight: "100dvh" }}
     >
-      <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-white">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-background">
         <div>
           <h2 className="font-bold text-sm tracking-tight">Activity Feed</h2>
           <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold mt-0.5">
@@ -168,12 +168,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </>
       )}
 
-      <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-border bg-white shrink-0 flex flex-col h-auto md:h-[100dvh] md:sticky md:top-0">
-        {/* Logo — white background version */}
+      <aside className="w-full md:w-64 border-b md:border-b-0 md:border-r border-border bg-sidebar shrink-0 flex flex-col h-auto md:h-[100dvh] md:sticky md:top-0">
+        {/* Logo — swap based on theme */}
         <div className="overflow-hidden border-b border-border/40" style={{ height: '72px' }}>
           <Link href="/dashboard" className="block w-full h-full outline-none">
             <img
-              src="/logo-light.png"
+              src={isDark ? "/logo-full.png" : "/logo-light.png"}
               alt="Content Matrix"
               style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center center' }}
             />

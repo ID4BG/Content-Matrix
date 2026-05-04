@@ -198,7 +198,7 @@ export default function FolderDetail() {
         </h2>
 
         {/* External view-only link */}
-        <div className="border border-border bg-white p-5 space-y-4">
+        <div className="border border-border bg-card p-5 space-y-4">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 border border-border flex items-center justify-center shrink-0">
               <Lock className="w-3.5 h-3.5 text-muted-foreground" />
@@ -246,7 +246,7 @@ export default function FolderDetail() {
         </div>
 
         {/* Share with team members */}
-        <div className="border border-border bg-white">
+        <div className="border border-border bg-card">
           <div className="px-5 py-4 border-b border-border/40 bg-secondary/5 flex items-center gap-3">
             <Users className="w-3.5 h-3.5 text-muted-foreground" />
             <div>
@@ -345,7 +345,7 @@ export default function FolderDetail() {
           <div className="space-y-3">
             {campaigns.map((campaign) => (
               <Link key={campaign.id} href={`/campaigns/${campaign.id}`}>
-                <div className="flex items-center justify-between border border-border bg-white hover:border-black hover:shadow-sm transition-all p-5 group">
+                <div className="flex items-center justify-between border border-border bg-card hover:border-black hover:shadow-sm transition-all p-5 group">
                   <div className="space-y-1">
                     <h3 className="font-bold group-hover:underline decoration-2 underline-offset-4">{campaign.title}</h3>
                     {campaign.description && (

@@ -18,7 +18,7 @@ const COLUMNS: { status: ContentPieceStatus; label: string; bg: string; border: 
   {
     status: "empty",
     label: "Empty",
-    bg: "bg-white",
+    bg: "bg-card",
     border: "border-border",
     header: "bg-secondary/30",
     dot: "bg-muted-foreground/40",
@@ -26,33 +26,33 @@ const COLUMNS: { status: ContentPieceStatus; label: string; bg: string; border: 
   {
     status: "uploaded",
     label: "Uploaded",
-    bg: "bg-white",
-    border: "border-gray-200",
-    header: "bg-gray-50",
+    bg: "bg-card",
+    border: "border-border",
+    header: "bg-secondary/30 dark:bg-secondary/20",
     dot: "bg-gray-500",
   },
   {
     status: "in_review",
     label: "In Review",
-    bg: "bg-amber-50/50",
-    border: "border-amber-200",
-    header: "bg-amber-50",
+    bg: "bg-amber-50/50 dark:bg-amber-950/30",
+    border: "border-amber-200 dark:border-amber-900",
+    header: "bg-amber-50 dark:bg-amber-950/50",
     dot: "bg-amber-500",
   },
   {
     status: "needs_revision",
     label: "Needs Revision",
-    bg: "bg-rose-50/40",
-    border: "border-rose-200",
-    header: "bg-rose-50",
+    bg: "bg-rose-50/40 dark:bg-rose-950/30",
+    border: "border-rose-200 dark:border-rose-900",
+    header: "bg-rose-50 dark:bg-rose-950/50",
     dot: "bg-rose-500",
   },
   {
     status: "approved",
     label: "Approved",
-    bg: "bg-blue-50/40",
-    border: "border-blue-200",
-    header: "bg-blue-50",
+    bg: "bg-blue-50/40 dark:bg-blue-950/30",
+    border: "border-blue-200 dark:border-blue-900",
+    header: "bg-blue-50 dark:bg-blue-950/50",
     dot: "bg-blue-500",
   },
 ];
@@ -74,7 +74,7 @@ function PieceCard({
         e.dataTransfer.setData("pieceId", String(piece.id));
         onDragStart(piece.id);
       }}
-      className="group bg-white border border-border p-3 cursor-grab active:cursor-grabbing hover:shadow-sm hover:border-black/20 transition-all select-none"
+      className="group bg-card border border-border p-3 cursor-grab active:cursor-grabbing hover:shadow-sm hover:border-foreground/20 transition-all select-none"
     >
       <div className="flex items-start gap-2">
         <div className="mt-0.5 text-muted-foreground shrink-0">
@@ -151,7 +151,7 @@ function KanbanColumn({
           <span className={`w-2 h-2 rounded-full ${col.dot}`} />
           <span className="text-[10px] font-bold uppercase tracking-widest">{col.label}</span>
         </div>
-        <span className="text-xs font-bold text-muted-foreground bg-white/70 px-1.5 py-0.5 border border-current/10">
+        <span className="text-xs font-bold text-muted-foreground bg-card/70 px-1.5 py-0.5 border border-current/10">
           {pieces.length}
         </span>
       </div>
@@ -340,7 +340,7 @@ export default function CampaignPipeline() {
 
       {/* Summary strip */}
       {!isLoading && (
-        <div className="grid grid-cols-5 border border-border bg-white divide-x divide-border">
+        <div className="grid grid-cols-5 border border-border bg-card divide-x divide-border">
           {COLUMNS.map((col) => {
             const count = piecesByStatus[col.status]?.length ?? 0;
             return (

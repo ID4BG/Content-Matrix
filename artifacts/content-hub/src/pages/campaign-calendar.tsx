@@ -31,11 +31,11 @@ const STATUS_RING: Record<ContentPieceStatus, string> = {
 };
 
 const STATUS_BG: Record<ContentPieceStatus, string> = {
-  empty:          "bg-white hover:bg-secondary/50",
-  uploaded:       "bg-gray-50 hover:bg-gray-100",
-  in_review:      "bg-amber-50 hover:bg-amber-100/80",
-  needs_revision: "bg-rose-50 hover:bg-rose-100/80",
-  approved:       "bg-blue-50 hover:bg-blue-100/80",
+  empty:          "bg-card hover:bg-secondary/50",
+  uploaded:       "bg-secondary/30 hover:bg-secondary/50 dark:bg-secondary/20",
+  in_review:      "bg-amber-50 hover:bg-amber-100/80 dark:bg-amber-950/40 dark:hover:bg-amber-950/60",
+  needs_revision: "bg-rose-50 hover:bg-rose-100/80 dark:bg-rose-950/40 dark:hover:bg-rose-950/60",
+  approved:       "bg-blue-50 hover:bg-blue-100/80 dark:bg-blue-950/40 dark:hover:bg-blue-950/60",
 };
 
 export default function CampaignCalendar() {
@@ -111,7 +111,7 @@ export default function CampaignCalendar() {
       </header>
 
       {/* Stats Strip */}
-      <div className="grid grid-cols-3 border border-border bg-white divide-x divide-border">
+      <div className="grid grid-cols-3 border border-border bg-card divide-x divide-border">
         <div className="p-4 text-center">
           <p className="text-2xl font-bold">{totalScheduled}</p>
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mt-1">Scheduled</p>
@@ -127,7 +127,7 @@ export default function CampaignCalendar() {
       </div>
 
       {/* Calendar Grid */}
-      <div className="border border-border bg-white overflow-hidden">
+      <div className="border border-border bg-card overflow-hidden">
         {/* Weekday headers */}
         <div className="grid grid-cols-7 border-b border-border bg-secondary/20">
           {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(d => (
@@ -154,7 +154,7 @@ export default function CampaignCalendar() {
                 <div
                   key={i}
                   className={`min-h-[130px] flex flex-col border-r last:border-r-0 border-border ${
-                    inMonth ? "bg-white" : "bg-secondary/20"
+                    inMonth ? "bg-card" : "bg-secondary/20"
                   }`}
                 >
                   {/* Day number */}
@@ -184,7 +184,7 @@ export default function CampaignCalendar() {
                         key={piece.id}
                         href={`/campaigns/${campaignId}/pieces/${piece.id}`}
                         className={`flex items-center gap-1 px-1.5 py-1 border text-[10px] font-semibold truncate transition-colors ${
-                          STATUS_BG[piece.status as ContentPieceStatus] ?? "bg-white hover:bg-secondary/50"
+                          STATUS_BG[piece.status as ContentPieceStatus] ?? "bg-card hover:bg-secondary/50"
                         } ${STATUS_RING[piece.status as ContentPieceStatus] ?? "border-border"}`}
                       >
                         <span

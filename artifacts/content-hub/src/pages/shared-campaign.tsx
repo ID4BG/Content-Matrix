@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 function PieceCard({ piece }: { piece: ContentPiece }) {
   return (
-    <div className="border border-border bg-white p-5 flex flex-col gap-3">
+    <div className="border border-border bg-card p-5 flex flex-col gap-3">
       <div className="flex items-start gap-3">
         <div className="w-9 h-9 border border-border flex items-center justify-center shrink-0 bg-secondary/30">
           <ChannelIcon channel={piece.channel} className="w-4 h-4" />
@@ -73,9 +73,9 @@ export default function SharedCampaign() {
   }, {});
 
   return (
-    <div className="min-h-screen bg-white font-sans text-black">
+    <div className="min-h-screen bg-background text-foreground font-sans">
       {/* Top bar */}
-      <header className="border-b border-border/50 py-4 px-6 flex items-center justify-between sticky top-0 bg-white/95 backdrop-blur z-50">
+      <header className="border-b border-border/50 py-4 px-6 flex items-center justify-between sticky top-0 bg-background/95 backdrop-blur z-50">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 border-2 border-black flex items-center justify-center font-bold text-xs tracking-tighter select-none">
             CM

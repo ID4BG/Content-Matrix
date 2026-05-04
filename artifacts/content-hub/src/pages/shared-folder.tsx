@@ -15,7 +15,7 @@ export default function SharedFolder() {
   });
 
   return (
-    <div className="min-h-screen bg-white font-sans text-black">
+    <div className="min-h-screen bg-background text-foreground font-sans">
       {/* Top bar */}
       <header className="border-b border-border/50 py-4 px-6 flex items-center justify-between sticky top-0 bg-white/90 backdrop-blur z-50">
         <div className="flex items-center gap-3">
@@ -72,7 +72,7 @@ export default function SharedFolder() {
               ) : (
                 <div className="space-y-4">
                   {data.campaigns.map((campaign) => (
-                    <div key={campaign.id} className="border border-border bg-white p-6">
+                    <div key={campaign.id} className="border border-border bg-card p-6">
                       <div className="flex items-start justify-between gap-4 mb-3">
                         <div>
                           <h3 className="font-bold text-xl mb-1">{campaign.title}</h3>

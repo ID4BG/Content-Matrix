@@ -115,7 +115,7 @@ export default function CampaignNew() {
         </p>
       </div>
 
-      <div className="bg-white p-8 border border-border shadow-none">
+      <div className="bg-card p-8 border border-border shadow-none">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
             <FormField

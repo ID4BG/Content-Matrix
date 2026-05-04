@@ -171,7 +171,7 @@ export default function Dashboard() {
                 ) : activity && activity.length > 0 ? (
                   activity.slice(0, 10).map((item) => (
                     <div key={item.id} className="p-4 flex gap-4 items-start hover:bg-secondary/30 transition-colors">
-                      <div className="w-8 h-8 rounded-full border border-border flex items-center justify-center shrink-0 bg-white">
+                      <div className="w-8 h-8 rounded-full border border-border flex items-center justify-center shrink-0 bg-card">
                         {item.type.includes('campaign') ? <FolderKanban className="w-4 h-4 text-muted-foreground" /> :
                          item.type.includes('piece') ? <FileText className="w-4 h-4 text-muted-foreground" /> :
                          item.type.includes('comment') ? <AlertCircle className="w-4 h-4 text-muted-foreground" /> :

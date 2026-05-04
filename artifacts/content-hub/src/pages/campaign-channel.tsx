@@ -275,7 +275,7 @@ export default function CampaignChannel() {
       ) : (
         <div className="space-y-2">
           {pieces.map(piece => (
-            <div key={piece.id} className="group border border-border hover:border-black transition-colors bg-white flex items-start gap-4 p-4">
+            <div key={piece.id} className="group border border-border hover:border-black transition-colors bg-card flex items-start gap-4 p-4">
               <Link href={`/campaigns/${campaignId}/pieces/${piece.id}`}>
                 <PieceThumbnail piece={piece} />
               </Link>

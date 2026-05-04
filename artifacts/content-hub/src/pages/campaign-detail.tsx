@@ -461,14 +461,14 @@ export default function CampaignDetail() {
             </Button>
             <Link
               href={`/campaigns/${id}/pipeline`}
-              className="inline-flex items-center gap-1.5 border border-border bg-white hover:bg-secondary/50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors"
+              className="inline-flex items-center gap-1.5 border border-border bg-card hover:bg-secondary/50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors"
             >
               <KanbanSquare className="w-3.5 h-3.5" />
               Pipeline
             </Link>
             <Link
               href={`/campaigns/${id}/calendar`}
-              className="inline-flex items-center gap-1.5 border border-border bg-white hover:bg-secondary/50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors"
+              className="inline-flex items-center gap-1.5 border border-border bg-card hover:bg-secondary/50 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition-colors"
             >
               <CalendarDays className="w-3.5 h-3.5" />
               Calendar
@@ -586,7 +586,7 @@ export default function CampaignDetail() {
 
               return (
                 <Link key={channel} href={`/campaigns/${id}/channels/${channel}`}>
-                  <div className="group border border-border hover:border-black transition-all duration-200 bg-white p-5 flex flex-col gap-4 cursor-pointer">
+                  <div className="group border border-border hover:border-foreground/60 transition-all duration-200 bg-card p-5 flex flex-col gap-4 cursor-pointer">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 border border-border flex items-center justify-center group-hover:border-black transition-colors">
@@ -626,7 +626,7 @@ export default function CampaignDetail() {
 
             <button
               onClick={() => setIsChannelsModalOpen(true)}
-              className="border border-dashed border-border/60 hover:border-black transition-colors bg-white p-5 flex items-center justify-center gap-3 text-muted-foreground hover:text-black group"
+              className="border border-dashed border-border/60 hover:border-foreground/60 transition-colors bg-card p-5 flex items-center justify-center gap-3 text-muted-foreground hover:text-black group"
             >
               <Plus className="w-5 h-5" />
               <span className="text-sm font-semibold">Add Channel</span>
@@ -636,7 +636,7 @@ export default function CampaignDetail() {
       </div>
 
       {/* Members Management — always visible */}
-      <div className="border border-border/60 bg-white">
+      <div className="border border-border/60 bg-card">
         <div className="px-5 py-3 border-b border-border/40 bg-secondary/5 flex items-center justify-between">
           <h3 className="text-[10px] font-bold uppercase tracking-widest">
             Campaign Team {members && members.length > 0 ? `(${members.length})` : ""}
