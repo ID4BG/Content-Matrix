@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { campaignsTable, contentPiecesTable, activityTable, foldersTable } from "@workspace/db";
-import { eq, sql, and } from "drizzle-orm";
+import { campaignsTable, contentPiecesTable, activityTable, foldersTable, campaignMembersTable } from "@workspace/db";
+import { eq, sql, and, inArray } from "drizzle-orm";
+import { clerkClient } from "@clerk/express";
 import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
@@ -70,25 +71,40 @@ router.get("/dashboard/summary", requireAuth, async (req, res) => {
 router.get("/dashboard/activity", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
 
-  const campaignIds = await db
+  // Campaigns owned by this user
+  const ownedRows = await db
     .select({ id: campaignsTable.id })
     .from(campaignsTable)
     .where(eq(campaignsTable.userId, userId));
 
-  const ids = campaignIds.map((c) => c.id);
+  // Campaigns where this user is an invited member (looked up by email)
+  let memberIds: number[] = [];
+  try {
+    const clerkUser = await clerkClient.users.getUser(userId);
+    const email = clerkUser.emailAddresses?.[0]?.emailAddress;
+    if (email) {
+      const memberRows = await db
+        .select({ campaignId: campaignMembersTable.campaignId })
+        .from(campaignMembersTable)
+        .where(eq(campaignMembersTable.email, email));
+      memberIds = memberRows.map((r) => r.campaignId);
+    }
+  } catch {
+    // Non-fatal — proceed with owned campaigns only
+  }
 
-  const activity = ids.length
-    ? await db
-        .select()
-        .from(activityTable)
-        .where(sql`${activityTable.entityId} = ANY(${sql.raw(`ARRAY[${ids.join(",")}]`)})`)
-        .orderBy(sql`${activityTable.createdAt} desc`)
-        .limit(20)
-    : await db
-        .select()
-        .from(activityTable)
-        .orderBy(sql`${activityTable.createdAt} desc`)
-        .limit(20);
+  const allIds = [...new Set([...ownedRows.map((c) => c.id), ...memberIds])];
+
+  if (!allIds.length) {
+    return res.json([]);
+  }
+
+  const activity = await db
+    .select()
+    .from(activityTable)
+    .where(inArray(activityTable.entityId, allIds))
+    .orderBy(sql`${activityTable.createdAt} desc`)
+    .limit(20);
 
   res.json(activity);
 });

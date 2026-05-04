@@ -2,8 +2,9 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, PlusCircle, FolderKanban, Settings, FolderOpen, User,
-  Bell, X, CheckCircle2, MessageSquare, Upload, CheckCircle, FolderPlus,
+  Bell, X, CheckCircle2, MessageSquare, Upload, CheckCircle, FolderPlus, Sun, Moon,
 } from "lucide-react";
+import { useTheme } from "@/hooks/use-theme";
 import { useUser } from "@clerk/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useGetRecentActivity, ActivityItem } from "@workspace/api-client-react";
@@ -141,6 +142,7 @@ function NotificationPanel({ onClose }: { onClose: () => void }) {
 export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { user } = useUser();
+  const { isDark, toggleTheme } = useTheme();
   const [notifOpen, setNotifOpen] = useState(false);
 
   const { data: activity = [] } = useGetRecentActivity();
@@ -203,27 +205,34 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </nav>
 
         <div className="p-5 hidden md:flex flex-col gap-3 border-t border-border/50">
-          {/* New Campaign + Notifications row */}
+          {/* New Campaign + Notifications + Theme row */}
           <div className="flex gap-2">
             <Link
               href="/campaigns/new"
-              className="flex-1 flex items-center justify-center gap-2 bg-black text-white hover:bg-black/80 px-3 py-2.5 text-xs font-semibold uppercase tracking-wider transition-colors"
+              className="flex-1 flex items-center justify-center gap-2 bg-foreground text-background hover:opacity-80 px-3 py-2.5 text-xs font-semibold uppercase tracking-wider transition-colors"
             >
               <PlusCircle className="w-3.5 h-3.5" />
               New Campaign
             </Link>
             <button
+              onClick={toggleTheme}
+              className="flex items-center justify-center w-10 h-10 border border-border hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Toggle dark mode"
+            >
+              {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+            <button
               onClick={() => setNotifOpen(o => !o)}
               className={`relative flex items-center justify-center w-10 h-10 border transition-colors ${
                 notifOpen
-                  ? "bg-black text-white border-black"
+                  ? "bg-foreground text-background border-foreground"
                   : "border-border hover:bg-secondary text-muted-foreground hover:text-foreground"
               }`}
               aria-label="Activity feed"
             >
               <Bell className="w-4 h-4" />
               {unreadCount > 0 && !notifOpen && (
-                <span className="absolute -top-1 -right-1 bg-black text-white text-[9px] font-bold w-4 h-4 flex items-center justify-center">
+                <span className="absolute -top-1 -right-1 bg-foreground text-background text-[9px] font-bold w-4 h-4 flex items-center justify-center">
                   {unreadCount}
                 </span>
               )}

@@ -1,18 +1,20 @@
 import { useState } from "react";
 import { useUser, useClerk } from "@clerk/react";
 import { useLocation } from "wouter";
-import { LogOut, User, Mail, Shield, Edit2, Loader2, Check } from "lucide-react";
+import { LogOut, User, Mail, Shield, Edit2, Loader2, Check, Sun, Moon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { useTheme } from "@/hooks/use-theme";
 
 export default function Settings() {
   const { user, isLoaded } = useUser();
   const { signOut } = useClerk();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  const { isDark, toggleTheme } = useTheme();
 
   const [isEditingName, setIsEditingName] = useState(false);
   const [editFirstName, setEditFirstName] = useState("");
@@ -171,6 +173,26 @@ export default function Settings() {
             </div>
             <Mail className="w-5 h-5 text-muted-foreground" />
           </div>
+        </div>
+      </section>
+
+      <section className="space-y-4 pb-8 border-b border-border/50">
+        <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Appearance</h2>
+        <div className="border border-border bg-card p-6 flex items-center justify-between">
+          <div>
+            <p className="font-bold text-sm">Dark Mode</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {isDark ? "Dark theme is active." : "Light theme is active."}
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            onClick={toggleTheme}
+            className="gap-2 border-border rounded-none font-semibold px-5"
+          >
+            {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            {isDark ? "Switch to Light" : "Switch to Dark"}
+          </Button>
         </div>
       </section>
 
