@@ -27,13 +27,15 @@ import { getChannelName, ChannelIcon } from "@/components/channel-icon";
 const ALL_CHANNELS = [
   "source_article",
   "instagram_reel",
+  "tiktok_post",
+  "x_post",
   "linkedin_post",
   "youtube_long",
   "youtube_short",
   "facebook_carousel",
   "facebook_group_post",
   "reddit_post",
-  "threads_post"
+  "threads_post",
 ] as const;
 
 const formSchema = z.object({
@@ -45,13 +47,15 @@ const formSchema = z.object({
   channels: z.array(z.enum([
     "source_article",
     "instagram_reel",
+    "tiktok_post",
+    "x_post",
     "linkedin_post",
     "youtube_long",
     "youtube_short",
     "facebook_carousel",
     "facebook_group_post",
     "reddit_post",
-    "threads_post"
+    "threads_post",
   ])).min(1, "Select at least one channel"),
 });
 

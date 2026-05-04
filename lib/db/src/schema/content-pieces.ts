@@ -5,6 +5,8 @@ import { campaignsTable } from "./campaigns";
 
 export const channelEnum = pgEnum("channel", [
   "instagram_reel",
+  "tiktok_post",
+  "x_post",
   "linkedin_post",
   "youtube_long",
   "youtube_short",

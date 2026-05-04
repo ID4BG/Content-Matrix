@@ -11,7 +11,7 @@ export const campaignsTable = pgTable("campaigns", {
   description: text("description"),
   status: campaignStatusEnum("status").notNull().default("draft"),
   folderId: integer("folder_id"),
-  channels: text("channels").array().notNull().default(["source_article","instagram_reel","linkedin_post","youtube_long","youtube_short","facebook_carousel","facebook_group_post","reddit_post","threads_post"]),
+  channels: text("channels").array().notNull().default(["source_article","instagram_reel","tiktok_post","x_post","linkedin_post","youtube_long","youtube_short","facebook_carousel","facebook_group_post","reddit_post","threads_post"]),
   shareToken: text("share_token"),
   approvedAt: timestamp("approved_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
