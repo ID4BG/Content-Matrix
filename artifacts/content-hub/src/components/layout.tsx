@@ -9,7 +9,10 @@ import { useTheme } from "@/hooks/use-theme";
 import { useUser } from "@clerk/react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useGetRecentActivity, ActivityItem } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow, parseISO } from "date-fns";
+
+const LAST_SEEN_KEY = "content-matrix-notif-seen";
 
 function activityIcon(type: ActivityItem["type"]) {
   switch (type) {
@@ -20,6 +23,18 @@ function activityIcon(type: ActivityItem["type"]) {
     case "comment_added":      return <MessageSquare className="w-3.5 h-3.5 text-amber-500" />;
     case "folder_created":     return <FolderOpen className="w-3.5 h-3.5 text-purple-500" />;
     default:                   return <Bell className="w-3.5 h-3.5 text-muted-foreground" />;
+  }
+}
+
+function activityLabel(type: ActivityItem["type"]) {
+  switch (type) {
+    case "campaign_created":   return "Campaign created";
+    case "campaign_approved":  return "Campaign approved";
+    case "piece_uploaded":     return "Content uploaded";
+    case "piece_approved":     return "Content approved";
+    case "comment_added":      return "New comment";
+    case "folder_created":     return "Folder created";
+    default:                   return "Activity";
   }
 }
 
@@ -35,9 +50,14 @@ function activityDotColor(type: ActivityItem["type"]) {
   }
 }
 
-function NotificationPanel({ onClose }: { onClose: () => void }) {
+function NotificationPanel({ onClose, onOpen }: { onClose: () => void; onOpen: () => void }) {
   const { data: activity = [], isLoading } = useGetRecentActivity();
   const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    onOpen();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -142,12 +162,63 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { user } = useUser();
   const { isDark, toggleTheme } = useTheme();
+  const { toast } = useToast();
   const [notifOpen, setNotifOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const { data: activity = [] } = useGetRecentActivity();
-  const unreadCount = Math.min(activity.length, 9);
+  // ── Unread tracking ──────────────────────────────────────────────────────
+  const [lastSeenAt, setLastSeenAt] = useState<Date>(() => {
+    try {
+      const stored = localStorage.getItem(LAST_SEEN_KEY);
+      return stored ? new Date(stored) : new Date(0);
+    } catch {
+      return new Date(0);
+    }
+  });
 
+  const markAllSeen = () => {
+    const now = new Date();
+    setLastSeenAt(now);
+    try { localStorage.setItem(LAST_SEEN_KEY, now.toISOString()); } catch {}
+  };
+
+  // ── Activity polling (every 30 s) ────────────────────────────────────────
+  const { data: activity = [], refetch } = useGetRecentActivity();
+
+  useEffect(() => {
+    const id = setInterval(() => { refetch(); }, 30_000);
+    return () => clearInterval(id);
+  }, [refetch]);
+
+  const prevIdsRef = useRef<Set<number>>(new Set());
+  const initializedRef = useRef(false);
+
+  useEffect(() => {
+    if (!activity.length) return;
+
+    if (!initializedRef.current) {
+      activity.forEach(a => prevIdsRef.current.add(a.id));
+      initializedRef.current = true;
+      return;
+    }
+
+    const newItems = activity.filter(a => !prevIdsRef.current.has(a.id));
+    newItems.forEach(a => {
+      prevIdsRef.current.add(a.id);
+      toast({
+        title: activityLabel(a.type),
+        description: a.description,
+        duration: 6000,
+      });
+    });
+  }, [activity, toast]);
+
+  const unreadCount = Math.min(
+    activity.filter(a => new Date(a.createdAt) > lastSeenAt).length,
+    9
+  );
+
+  // ── Nav ──────────────────────────────────────────────────────────────────
   const navItems = [
     { href: "/dashboard",  label: "Dashboard",  icon: LayoutDashboard },
     { href: "/campaigns",  label: "Campaigns",  icon: FolderKanban },
@@ -157,6 +228,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
   const closeMobileMenu = () => setMobileMenuOpen(false);
 
+  const handleOpenNotif = () => {
+    setNotifOpen(true);
+    closeMobileMenu();
+  };
+
+  // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="min-h-[100dvh] bg-background">
 
@@ -187,12 +264,12 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </button>
 
         <button
-          onClick={() => setNotifOpen(o => !o)}
+          onClick={handleOpenNotif}
           className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
           aria-label="Activity feed"
         >
           <Bell className="w-4 h-4" />
-          {unreadCount > 0 && !notifOpen && (
+          {unreadCount > 0 && (
             <span className="absolute top-0.5 right-0.5 bg-foreground text-background text-[8px] font-bold w-3.5 h-3.5 flex items-center justify-center">
               {unreadCount}
             </span>
@@ -208,14 +285,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
         />
       )}
 
-      {/* ── Notification panel overlay ── */}
+      {/* ── Notification panel ── */}
       {notifOpen && (
         <>
           <div
             className="fixed inset-0 z-40 bg-black/10 md:hidden"
             onClick={() => setNotifOpen(false)}
           />
-          <NotificationPanel onClose={() => setNotifOpen(false)} />
+          <NotificationPanel
+            onClose={() => setNotifOpen(false)}
+            onOpen={markAllSeen}
+          />
         </>
       )}
 
@@ -232,7 +312,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
             ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
           `}
         >
-          {/* Logo row — with close button on mobile */}
+          {/* Logo row */}
           <div className="overflow-hidden border-b border-border/40 flex items-center" style={{ height: '72px' }}>
             <Link href="/dashboard" onClick={closeMobileMenu} className="flex-1 block h-full outline-none">
               <img
@@ -278,7 +358,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
           {/* Footer */}
           <div className="p-5 flex flex-col gap-3 border-t border-border/50">
-            {/* New Campaign + Theme + Bell */}
             <div className="flex gap-2">
               <Link
                 href="/campaigns/new"
@@ -296,7 +375,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </button>
               <button
-                onClick={() => { setNotifOpen(o => !o); closeMobileMenu(); }}
+                onClick={handleOpenNotif}
                 className={`relative flex items-center justify-center w-10 h-10 border transition-colors ${
                   notifOpen
                     ? "bg-foreground text-background border-foreground"
@@ -313,12 +392,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
               </button>
             </div>
 
-            {/* Attribution */}
             <p className="text-[9px] text-muted-foreground/50 font-medium tracking-widest uppercase text-center pb-1">
               Made by <span className="text-muted-foreground/70">Arnela</span>, for Marketers — with love
             </p>
 
-            {/* User row */}
             <Link href="/settings" onClick={closeMobileMenu} className="flex items-center gap-3 group py-1">
               <Avatar className="w-8 h-8 border border-border rounded-none">
                 <AvatarImage src={user?.imageUrl} />
