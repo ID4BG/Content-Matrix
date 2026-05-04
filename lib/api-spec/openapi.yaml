@@ -872,7 +872,7 @@ components:
           nullable: true
         mediaType:
           type: string
-          enum: [image, video, carousel, text, article]
+          enum: [image, video, carousel, text, article, document]
           nullable: true
         scheduledDate:
           type: string
@@ -913,7 +913,7 @@ components:
           nullable: true
         mediaType:
           type: string
-          enum: [image, video, carousel, text, article]
+          enum: [image, video, carousel, text, article, document]
           nullable: true
         scheduledDate:
           type: string
@@ -934,7 +934,7 @@ components:
           nullable: true
         mediaType:
           type: string
-          enum: [image, video, carousel, text, article]
+          enum: [image, video, carousel, text, article, document]
           nullable: true
         scheduledDate:
           type: string

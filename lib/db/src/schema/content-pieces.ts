@@ -17,7 +17,7 @@ export const channelEnum = pgEnum("channel", [
   "source_article",
 ]);
 
-export const mediaTypeEnum = pgEnum("media_type", ["image", "video", "carousel", "text", "article"]);
+export const mediaTypeEnum = pgEnum("media_type", ["image", "video", "carousel", "text", "article", "document"]);
 
 export const contentPieceStatusEnum = pgEnum("content_piece_status", [
   "empty",

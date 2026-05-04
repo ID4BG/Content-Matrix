@@ -403,7 +403,7 @@ export const ListContentPiecesResponseItem = zod.object({
   bodyText: zod.string().nullish(),
   mediaUrl: zod.string().nullish(),
   mediaType: zod
-    .enum(["image", "video", "carousel", "text", "article"])
+    .enum(["image", "video", "carousel", "text", "article", "document"])
     .nullish(),
   scheduledDate: zod.coerce.date().nullish(),
   status: zod.enum([
@@ -444,7 +444,7 @@ export const CreateContentPieceBody = zod.object({
   bodyText: zod.string().nullish(),
   mediaUrl: zod.string().nullish(),
   mediaType: zod
-    .enum(["image", "video", "carousel", "text", "article"])
+    .enum(["image", "video", "carousel", "text", "article", "document"])
     .nullish(),
   scheduledDate: zod.coerce.date().nullish(),
 });
@@ -476,7 +476,7 @@ export const GetContentPieceResponse = zod.object({
   bodyText: zod.string().nullish(),
   mediaUrl: zod.string().nullish(),
   mediaType: zod
-    .enum(["image", "video", "carousel", "text", "article"])
+    .enum(["image", "video", "carousel", "text", "article", "document"])
     .nullish(),
   scheduledDate: zod.coerce.date().nullish(),
   status: zod.enum([
@@ -504,7 +504,7 @@ export const UpdateContentPieceBody = zod.object({
   bodyText: zod.string().nullish(),
   mediaUrl: zod.string().nullish(),
   mediaType: zod
-    .enum(["image", "video", "carousel", "text", "article"])
+    .enum(["image", "video", "carousel", "text", "article", "document"])
     .nullish(),
   scheduledDate: zod.coerce.date().nullish(),
   status: zod
@@ -532,7 +532,7 @@ export const UpdateContentPieceResponse = zod.object({
   bodyText: zod.string().nullish(),
   mediaUrl: zod.string().nullish(),
   mediaType: zod
-    .enum(["image", "video", "carousel", "text", "article"])
+    .enum(["image", "video", "carousel", "text", "article", "document"])
     .nullish(),
   scheduledDate: zod.coerce.date().nullish(),
   status: zod.enum([
@@ -582,7 +582,7 @@ export const ApproveContentPieceResponse = zod.object({
   bodyText: zod.string().nullish(),
   mediaUrl: zod.string().nullish(),
   mediaType: zod
-    .enum(["image", "video", "carousel", "text", "article"])
+    .enum(["image", "video", "carousel", "text", "article", "document"])
     .nullish(),
   scheduledDate: zod.coerce.date().nullish(),
   status: zod.enum([
@@ -625,7 +625,7 @@ export const DisapproveContentPieceResponse = zod.object({
   bodyText: zod.string().nullish(),
   mediaUrl: zod.string().nullish(),
   mediaType: zod
-    .enum(["image", "video", "carousel", "text", "article"])
+    .enum(["image", "video", "carousel", "text", "article", "document"])
     .nullish(),
   scheduledDate: zod.coerce.date().nullish(),
   status: zod.enum([
@@ -673,7 +673,7 @@ export const SubmitContentPieceForReviewResponse = zod.object({
   bodyText: zod.string().nullish(),
   mediaUrl: zod.string().nullish(),
   mediaType: zod
-    .enum(["image", "video", "carousel", "text", "article"])
+    .enum(["image", "video", "carousel", "text", "article", "document"])
     .nullish(),
   scheduledDate: zod.coerce.date().nullish(),
   status: zod.enum([
@@ -890,7 +890,7 @@ export const GetSharedCampaignResponse = zod.object({
       bodyText: zod.string().nullish(),
       mediaUrl: zod.string().nullish(),
       mediaType: zod
-        .enum(["image", "video", "carousel", "text", "article"])
+        .enum(["image", "video", "carousel", "text", "article", "document"])
         .nullish(),
       scheduledDate: zod.coerce.date().nullish(),
       status: zod.enum([

@@ -199,6 +199,7 @@ export const ContentPieceMediaType = {
   carousel: "carousel",
   text: "text",
   article: "article",
+  document: "document",
 } as const;
 
 export type ContentPieceStatus =
@@ -255,6 +256,7 @@ export const CreateContentPieceBodyMediaType = {
   carousel: "carousel",
   text: "text",
   article: "article",
+  document: "document",
 } as const;
 
 export interface CreateContentPieceBody {
@@ -277,6 +279,7 @@ export const UpdateContentPieceBodyMediaType = {
   carousel: "carousel",
   text: "text",
   article: "article",
+  document: "document",
 } as const;
 
 export type UpdateContentPieceBodyStatus =

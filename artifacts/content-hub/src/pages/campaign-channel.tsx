@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import {
   ArrowLeft, Plus, Loader2, Calendar, MessageSquare, CheckCircle2,
   PlayCircle, ImageIcon, Clock, Send, X, Crown, Briefcase, XCircle,
-  FileUp, FileText, CheckCheck, GripVertical,
+  FileUp, FileText, CheckCheck, GripVertical, Paperclip, Eye, Trash2,
 } from "lucide-react";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { useState, useRef, useEffect } from "react";
@@ -226,7 +226,9 @@ export default function CampaignChannel() {
     { campaignId },
     { query: { enabled: !!campaignId, queryKey: getListContentPiecesQueryKey({ campaignId }) } }
   );
-  const pieces = allPieces?.filter(p => p.channel === channel) ?? [];
+  const allChannelPieces = allPieces?.filter(p => p.channel === channel) ?? [];
+  const docPieces = allChannelPieces.filter(p => p.mediaType === "document");
+  const pieces = allChannelPieces.filter(p => p.mediaType !== "document");
 
   const { data: members } = useQuery<CampaignMember[]>({
     queryKey: ["campaign-members", campaignId],
@@ -330,10 +332,15 @@ export default function CampaignChannel() {
 
   // ── Document import ───────────────────────────────────────────
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachDocRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isAttaching, setIsAttaching] = useState(false);
   const [importedPieces, setImportedPieces] = useState<ImportedPiece[]>([]);
   const [isImportPreviewOpen, setIsImportPreviewOpen] = useState(false);
   const [isCreatingBulk, setIsCreatingBulk] = useState(false);
+
+  // ── Document viewer ───────────────────────────────────────────
+  const [viewingDoc, setViewingDoc] = useState<ContentPiece | null>(null);
 
   const approvedCount = pieces.filter(p => p.status === "approved").length;
   const allApproved = pieces.length > 0 && approvedCount === pieces.length;
@@ -436,12 +443,55 @@ export default function CampaignChannel() {
       queryClient.invalidateQueries({ queryKey });
       toast({
         title: `Imported ${data.count} piece${data.count !== 1 ? "s" : ""}`,
-        description: "Content pieces created from your document.",
+        description: "Document saved and content pieces created.",
       });
     } catch (err: any) {
       toast({ title: "Import failed", description: err.message, variant: "destructive" });
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  const handleAttachDoc = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    setIsAttaching(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("campaignId", String(campaignId));
+      form.append("channel", channel);
+
+      const res = await fetch("/api/content-pieces/attach-document", {
+        method: "POST",
+        body: form,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to attach document");
+      }
+
+      queryClient.invalidateQueries({ queryKey });
+      toast({ title: "Document attached", description: "You can now view it in the channel." });
+    } catch (err: any) {
+      toast({ title: "Attach failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsAttaching(false);
+    }
+  };
+
+  const handleDeleteDoc = async (docId: number) => {
+    try {
+      const res = await fetch(`/api/content-pieces/${docId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Delete failed");
+      queryClient.invalidateQueries({ queryKey });
+      if (viewingDoc?.id === docId) setViewingDoc(null);
+      toast({ title: "Document removed" });
+    } catch {
+      toast({ title: "Failed to remove document", variant: "destructive" });
     }
   };
 
@@ -504,22 +554,26 @@ export default function CampaignChannel() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".docx,.doc"
-            className="hidden"
-            onChange={handleFileChange}
-          />
+          <input ref={fileInputRef} type="file" accept=".docx,.doc" className="hidden" onChange={handleFileChange} />
+          <input ref={attachDocRef} type="file" accept=".docx,.doc" className="hidden" onChange={handleAttachDoc} />
+          <Button
+            variant="outline"
+            onClick={() => attachDocRef.current?.click()}
+            disabled={isAttaching}
+            className="rounded-none gap-1.5 text-xs font-semibold uppercase tracking-wider border-border"
+            title="Attach a document for reference viewing"
+          >
+            {isAttaching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
+            {isAttaching ? "Attaching…" : "Attach Doc"}
+          </Button>
           <Button
             variant="outline"
             onClick={() => fileInputRef.current?.click()}
             disabled={isImporting}
             className="rounded-none gap-1.5 text-xs font-semibold uppercase tracking-wider border-border"
+            title="Import content pieces from a Word document"
           >
-            {isImporting
-              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              : <FileUp className="w-3.5 h-3.5" />}
+            {isImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileUp className="w-3.5 h-3.5" />}
             {isImporting ? "Importing…" : "Import Doc"}
           </Button>
           <Button onClick={() => setIsAddOpen(true)} className="bg-black text-white rounded-none gap-1.5 text-xs font-semibold uppercase tracking-wider">
@@ -529,6 +583,48 @@ export default function CampaignChannel() {
         </div>
       </div>
 
+      {/* ── Source Documents ───────────────────────────────────────── */}
+      {docPieces.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+            <Paperclip className="w-3 h-3" /> Source Documents
+          </p>
+          {docPieces.map(doc => (
+            <div key={doc.id} className="border border-border bg-secondary/5 flex items-center gap-3 px-4 py-3 group">
+              <div className="w-9 h-9 border border-border/60 bg-background flex items-center justify-center shrink-0">
+                <FileText className="w-4 h-4 text-muted-foreground" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold truncate">{doc.title}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Uploaded {format(new Date(doc.createdAt), 'MMM d, yyyy')}
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-none gap-1.5 text-xs h-8 border-border"
+                  onClick={() => setViewingDoc(doc)}
+                >
+                  <Eye className="w-3 h-3" />
+                  View
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="rounded-none h-8 px-2 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={() => handleDeleteDoc(doc.id)}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ── Content Pieces ─────────────────────────────────────────── */}
       {isLoading ? (
         <div className="space-y-3">
           {[1, 2, 3].map(i => <Skeleton key={i} className="h-24 w-full" />)}
@@ -699,6 +795,43 @@ export default function CampaignChannel() {
                 : <><CheckCheck className="w-4 h-4" /> Create {importedPieces.length} Piece{importedPieces.length !== 1 ? "s" : ""}</>}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Document Viewer Dialog */}
+      <Dialog open={!!viewingDoc} onOpenChange={open => { if (!open) setViewingDoc(null); }}>
+        <DialogContent className="rounded-none sm:rounded-none max-w-3xl max-h-[85vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-5 pb-3 border-b border-border/60 shrink-0">
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
+              <span className="truncate">{viewingDoc?.title}</span>
+            </DialogTitle>
+            {viewingDoc && (
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Uploaded {format(new Date(viewingDoc.createdAt), 'MMMM d, yyyy')}
+              </p>
+            )}
+          </DialogHeader>
+          <div className="overflow-y-auto flex-1 px-6 py-5">
+            {viewingDoc?.bodyText ? (
+              <div
+                className="prose prose-sm max-w-none dark:prose-invert
+                  prose-headings:font-bold prose-headings:tracking-tight
+                  prose-p:leading-relaxed prose-p:text-foreground
+                  prose-strong:font-semibold prose-li:text-foreground
+                  prose-table:border prose-th:border prose-td:border
+                  prose-th:px-3 prose-th:py-1.5 prose-td:px-3 prose-td:py-1.5"
+                dangerouslySetInnerHTML={{ __html: viewingDoc.bodyText }}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground italic">No content available.</p>
+            )}
+          </div>
+          <div className="px-6 py-3 border-t border-border/60 shrink-0 flex justify-end">
+            <Button variant="outline" onClick={() => setViewingDoc(null)} className="rounded-none text-xs">
+              Close
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

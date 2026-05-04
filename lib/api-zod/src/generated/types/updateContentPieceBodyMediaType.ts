@@ -16,4 +16,5 @@ export const UpdateContentPieceBodyMediaType = {
   carousel: "carousel",
   text: "text",
   article: "article",
+  document: "document",
 } as const;
