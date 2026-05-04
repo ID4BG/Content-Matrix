@@ -31,6 +31,7 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { useState, useEffect, useRef } from "react";
+import { useUser } from "@clerk/react";
 
 const ALL_CHANNELS: ContentPieceChannel[] = [
   "source_article", "instagram_reel", "tiktok_post", "x_post", "linkedin_post", "youtube_long",
@@ -118,6 +119,7 @@ export default function CampaignDetail() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useUser();
 
   const { data: campaign, isLoading: isCampaignLoading } = useGetCampaign(id, {
     query: { enabled: !!id, queryKey: getGetCampaignQueryKey(id) },
@@ -340,6 +342,8 @@ export default function CampaignDetail() {
     );
   }
 
+  const isOwner = campaign.userId === user?.id;
+
   const activeChannels = campaign.channels || [];
   const folder = folders?.find(f => f.id === campaign.folderId);
 
@@ -484,10 +488,12 @@ export default function CampaignDetail() {
               <CalendarDays className="w-3.5 h-3.5" />
               Calendar
             </Link>
-            <Button variant="outline" size="sm" onClick={() => setIsInviteOpen(true)} className="rounded-none gap-1.5 text-xs font-semibold uppercase tracking-wider">
-              <UserPlus className="w-3.5 h-3.5" />
-              Add Member
-            </Button>
+            {isOwner && (
+              <Button variant="outline" size="sm" onClick={() => setIsInviteOpen(true)} className="rounded-none gap-1.5 text-xs font-semibold uppercase tracking-wider">
+                <UserPlus className="w-3.5 h-3.5" />
+                Add Member
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={() => setIsChannelsModalOpen(true)} className="rounded-none gap-1.5 text-xs font-semibold uppercase tracking-wider">
               <Settings2 className="w-3.5 h-3.5" />
               Channels
@@ -698,10 +704,12 @@ export default function CampaignDetail() {
           <h3 className="text-[10px] font-bold uppercase tracking-widest">
             Campaign Team {members && members.length > 0 ? `(${members.length})` : ""}
           </h3>
-          <Button variant="ghost" size="sm" onClick={() => setIsInviteOpen(true)} className="gap-1.5 text-xs rounded-none">
-            <UserPlus className="w-3.5 h-3.5" />
-            Add Member
-          </Button>
+          {isOwner && (
+            <Button variant="ghost" size="sm" onClick={() => setIsInviteOpen(true)} className="gap-1.5 text-xs rounded-none">
+              <UserPlus className="w-3.5 h-3.5" />
+              Add Member
+            </Button>
+          )}
         </div>
 
         {isMembersLoading ? (
@@ -713,10 +721,12 @@ export default function CampaignDetail() {
             <User className="w-8 h-8 mx-auto text-muted-foreground/30 mb-3" />
             <p className="text-sm text-muted-foreground font-medium">No team members yet.</p>
             <p className="text-xs text-muted-foreground/70 mt-1">Add owners, marketers, and team members to collaborate.</p>
-            <Button size="sm" variant="outline" onClick={() => setIsInviteOpen(true)} className="mt-4 rounded-none gap-1.5 text-xs">
-              <UserPlus className="w-3.5 h-3.5" />
-              Add First Member
-            </Button>
+            {isOwner && (
+              <Button size="sm" variant="outline" onClick={() => setIsInviteOpen(true)} className="mt-4 rounded-none gap-1.5 text-xs">
+                <UserPlus className="w-3.5 h-3.5" />
+                Add First Member
+              </Button>
+            )}
           </div>
         ) : (
           <div className="divide-y divide-border/30">
@@ -729,7 +739,7 @@ export default function CampaignDetail() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-semibold truncate">{memberDisplayName(member)}</p>
-                      {!member.accepted && (
+                      {!member.accepted && isOwner && (
                         <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 bg-amber-100 text-amber-700 border border-amber-200 shrink-0">
                           Pending
                         </span>
@@ -739,7 +749,7 @@ export default function CampaignDetail() {
                       <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                         {ROLE_LABELS[member.role]}
                       </span>
-                      {(member.permissions ?? []).length > 0 && (
+                      {isOwner && (member.permissions ?? []).length > 0 && (
                         <>
                           <span className="text-muted-foreground/30 text-[10px]">·</span>
                           <span className="text-[10px] text-muted-foreground/60 truncate max-w-[200px]">
@@ -748,37 +758,41 @@ export default function CampaignDetail() {
                         </>
                       )}
                     </div>
-                    <p className="text-[10px] text-muted-foreground/50 mt-0.5 truncate">{member.email}</p>
+                    {isOwner && (
+                      <p className="text-[10px] text-muted-foreground/50 mt-0.5 truncate">{member.email}</p>
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-none h-8 text-xs gap-1.5 font-semibold"
-                    onClick={() => startEditMember(member)}
-                  >
-                    <Edit2 className="w-3 h-3" />
-                    Edit
-                  </Button>
-                  <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                      <Button size="sm" variant="outline" className="rounded-none h-8 px-2 text-muted-foreground hover:text-destructive hover:border-destructive/50">
-                        <X className="w-3.5 h-3.5" />
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Remove {memberDisplayName(member)}?</AlertDialogTitle>
-                        <AlertDialogDescription>This will remove them from the campaign team.</AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-                        <AlertDialogAction onClick={() => deleteMember.mutate({ id, memberId: member.id })} className="bg-destructive text-white">Remove</AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
-                </div>
+                {isOwner && (
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="rounded-none h-8 text-xs gap-1.5 font-semibold"
+                      onClick={() => startEditMember(member)}
+                    >
+                      <Edit2 className="w-3 h-3" />
+                      Edit
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="outline" className="rounded-none h-8 px-2 text-muted-foreground hover:text-destructive hover:border-destructive/50">
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Remove {memberDisplayName(member)}?</AlertDialogTitle>
+                          <AlertDialogDescription>This will remove them from the campaign team.</AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => deleteMember.mutate({ id, memberId: member.id })} className="bg-destructive text-white">Remove</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                )}
               </div>
             ))}
           </div>
