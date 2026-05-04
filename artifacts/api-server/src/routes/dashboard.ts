@@ -86,7 +86,13 @@ router.get("/dashboard/activity", requireAuth, async (req, res) => {
       const memberRows = await db
         .select({ campaignId: campaignMembersTable.campaignId })
         .from(campaignMembersTable)
-        .where(eq(campaignMembersTable.email, email));
+        .innerJoin(campaignsTable, eq(campaignMembersTable.campaignId, campaignsTable.id))
+        .where(
+          and(
+            eq(campaignMembersTable.email, email),
+            eq(campaignMembersTable.accepted, true)
+          )
+        );
       memberIds = memberRows.map((r) => r.campaignId);
     }
   } catch {
