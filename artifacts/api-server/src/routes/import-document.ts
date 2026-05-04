@@ -8,6 +8,7 @@ const require = createRequire(import.meta.url);
 const mammoth = require("mammoth") as typeof import("mammoth");
 import { contentPiecesTable, campaignsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import type { ContentPiece } from "@workspace/db";
 
 const router: IRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
@@ -20,10 +21,9 @@ interface ParsedPiece {
 function parseDocumentText(text: string): ParsedPiece[] {
   const lines = text.split("\n").map((l) => l.trim());
 
-  // Match section headers like:
-  //   "Post 1: Title"      "Video 2. Title"      "Reel 3 — Title"
-  //   "CAROUSEL 1  Title"  (no colon, space after number)
-  //   "Tweet 4: Title"
+  // Match section headers:
+  //   "Post 1: Title"    "Video 2. Title"    "Reel 3 — Title"
+  //   "CAROUSEL 1  Title" (space after number, no colon)
   const sectionPattern =
     /^(?:Post|Video|Reel|Image|Photo|Story|Content|Email|Newsletter|Blog|Chapter|Section|Article|Part|Tweet|Hook|Tip|Step|Lesson|Carousel)\s+\d+[\s:.–\-]/i;
 
@@ -41,7 +41,7 @@ function parseDocumentText(text: string): ParsedPiece[] {
   if (current) sections.push(current);
   if (sections.length === 0) return [];
 
-  // Lines that are metadata / production notes — always skip
+  // Lines that are purely production/meta — always skip
   const metaPatterns: RegExp[] = [
     /^Character count/i,
     /^Word count/i,
@@ -49,7 +49,6 @@ function parseDocumentText(text: string): ParsedPiece[] {
     /^💡/,
     /^🧵/,
     /^📌/,
-    /^🎬/,
     /^USAGE NOTE/i,
     /^Thread Format/i,
     /^Best Times/i,
@@ -66,77 +65,42 @@ function parseDocumentText(text: string): ParsedPiece[] {
     /^Target Audience/i,
     /^Slide Header Color/i,
     /^Slides \(/i,
-    /^\[.+\]$/, // [designer/director notes]
-    /^Script Beats/i,
-    /^Script:/i,
+    /^\[.+\]$/,         // [designer / director notes in brackets]
     /^Production Direction/i,
-    /^CTA \(/i,
-    /^Hook \(/i,
-    /^ON SCREEN/i,
+    /^ON SCREEN/i,      // videographer instruction lines
     /^COPY\s*[↓:]/i,
-    /^Post all \d/i, // "Post all 4 tweets as a thread"
+    /^Post all \d/i,    // "Post all 4 tweets as a thread…"
     /^📌 POSTING TIP/i,
-    /^\d+\s*\/\s*\d+$/, // "1/6" or "1 / 6" slide numbers
-    /^\/\d+/, // "/6" second half of split slide numbers
-    /^\[/, // any [bracket] line
+    /^\d+\s*\/\s*\d+$/, // "1/6" slide-number lines
+    /^\/\d+/,           // "/6" second-half of split slide numbers
   ];
 
-  // Emoji caption labels: 📝 CAPTION: or 📱 CAPTION:
-  // These are the preferred body source for Instagram Reels and TikTok
-  const emojiCaptionPattern = /^(?:📝|📱)\s*CAPTION\s*:/i;
+  // For video formats (no explicit copy label): strip these label prefixes but
+  // keep whatever content follows on the same line. Content on the NEXT line is
+  // collected naturally.
+  const stripLabelPatterns: RegExp[] = [
+    /^🎬\s*HOOK\s*:\s*/i,        // Instagram "🎬 HOOK: text"
+    /^📝\s*CAPTION\s*:\s*/i,     // Instagram "📝 CAPTION: text"
+    /^📱\s*CAPTION\s*:\s*/i,     // TikTok   "📱 CAPTION: text"
+    /^Script(?:\s+Beats)?\s*:\s*/i, // "Script:" / "Script Beats:" — label only
+    /^Hook\s*\([^)]*\)\s*:\s*/i,    // "Hook (First 2 seconds…):" — label only
+    /^CTA\s*\([^)]*\)\s*:\s*/i,     // "CTA (End Screen):" / "CTA (End of Video):" — label only
+  ];
 
-  // Text labels that mark the start of post body copy
-  // Handles: "Tweet Copy:", "Post Copy:", "Post Caption (paste...above...):", "Body Copy:", etc.
+  // Copy labels used by Twitter, LinkedIn, Facebook.
+  // When present, we only collect body content AFTER this label.
   const copyLabelPattern =
-    /^(?:Tweet Copy|Post Copy|Post Caption(?:\s*\([^)]*\))?|Body Copy|Body|Caption|Copy|Text|Voiceover|Narration|Hook|Content)\s*:/i;
+    /^(?:Tweet Copy|Post Copy|Post Caption(?:\s*\([^)]*\))?|Body Copy|Body|Copy|Text|Voiceover|Narration|Content)\s*:/i;
 
   return sections.map((section) => {
-    // ── Pass 1: look for an emoji caption (Instagram / TikTok) ──────────────
-    let emojiCaptionBody = "";
-    let emojiHashtags = "";
-    let emojiCaptionFound = false;
+    // Does this section have an explicit copy-label? (text-first formats)
+    const hasCopyLabel = section.lines.some((l) => copyLabelPattern.test(l));
 
-    for (let i = 0; i < section.lines.length; i++) {
-      const line = section.lines[i];
-      if (!emojiCaptionPattern.test(line)) continue;
-
-      emojiCaptionFound = true;
-      // Content may start on the same line after the label
-      const inline = line.replace(emojiCaptionPattern, "").trim();
-      const captionLines: string[] = inline ? [inline] : [];
-
-      // Collect remaining lines until we hit a "Hashtags:" label or end
-      for (let j = i + 1; j < section.lines.length; j++) {
-        const next = section.lines[j];
-        if (/^Hashtags?\s*:/i.test(next)) {
-          emojiHashtags = next.replace(/^Hashtags?\s*:\s*/i, "").trim();
-          break;
-        }
-        // skip production meta but keep plain text (including inline hashtag lines)
-        if (metaPatterns.some((p) => p.test(next))) continue;
-        captionLines.push(next);
-      }
-
-      // Trim trailing blank lines
-      while (captionLines.length && captionLines[captionLines.length - 1] === "") captionLines.pop();
-      emojiCaptionBody = captionLines.join("\n").trim();
-      break;
-    }
-
-    if (emojiCaptionFound && emojiCaptionBody) {
-      let bodyText = emojiCaptionBody;
-      if (emojiHashtags) bodyText += `\n\n${emojiHashtags}`;
-      return { title: section.title, bodyText };
-    }
-
-    // ── Pass 2: text copy-label extraction (Twitter, LinkedIn, Facebook) ────
     let hashtagLine = "";
     const bodyLines: string[] = [];
 
-    // Pre-scan: does this section have any explicit copy label?
-    const hasCopyLabel = section.lines.some((l) => copyLabelPattern.test(l));
-
-    // If a copy label exists we only collect AFTER it; otherwise collect everything non-meta
+    // Text-first (Twitter / LinkedIn / Facebook): collect only after the label.
+    // Video / full-section (Reels / TikTok): collect everything that isn't meta.
     let inCopy = !hasCopyLabel;
 
     for (const line of section.lines) {
@@ -145,24 +109,47 @@ function parseDocumentText(text: string): ParsedPiece[] {
         continue;
       }
 
+      // Always skip pure meta lines
       if (metaPatterns.some((p) => p.test(line))) continue;
 
+      // Hashtag lines — extract and handle
       if (/^Hashtags?\s*:/i.test(line)) {
-        hashtagLine = line.replace(/^Hashtags?\s*:\s*/i, "").trim();
+        const tags = line.replace(/^Hashtags?\s*:\s*/i, "").trim();
+        if (hasCopyLabel) {
+          // For text formats: collect separately and append at the end
+          hashtagLine = tags;
+        } else {
+          // For video formats: inline as part of the body
+          if (tags) bodyLines.push(tags);
+        }
         continue;
       }
 
+      // Copy label (text formats only)
       if (copyLabelPattern.test(line)) {
-        // Anything on the same line after the label starts the body
         const inline = line.replace(copyLabelPattern, "").trim();
         if (inline) bodyLines.push(inline);
         inCopy = true;
         continue;
       }
 
-      if (inCopy) bodyLines.push(line);
+      if (!inCopy) continue;
+
+      // Strip known label prefixes from video-format lines, keep inline content
+      let strippedByLabel = false;
+      for (const pattern of stripLabelPatterns) {
+        if (pattern.test(line)) {
+          const content = line.replace(pattern, "").trim();
+          if (content) bodyLines.push(content);
+          // No content inline (e.g. "Script Beats:") → next lines collected normally
+          strippedByLabel = true;
+          break;
+        }
+      }
+      if (!strippedByLabel) bodyLines.push(line);
     }
 
+    // Trim trailing blank lines
     while (bodyLines.length && bodyLines[bodyLines.length - 1] === "") bodyLines.pop();
 
     let bodyText = bodyLines.join("\n").trim();
@@ -209,21 +196,22 @@ router.post(
         });
       }
 
-      const created = await Promise.all(
-        parsed.map(async (piece) => {
-          const [row] = await db
-            .insert(contentPiecesTable)
-            .values({
-              campaignId,
-              channel: channel as any,
-              title: piece.title,
-              bodyText: piece.bodyText || null,
-              status: "uploaded",
-            })
-            .returning();
-          return row;
-        })
-      );
+      // Sequential inserts so DB IDs — and therefore display order — match
+      // the document order exactly.
+      const created: ContentPiece[] = [];
+      for (const piece of parsed) {
+        const [row] = await db
+          .insert(contentPiecesTable)
+          .values({
+            campaignId,
+            channel: channel as any,
+            title: piece.title,
+            bodyText: piece.bodyText || null,
+            status: "uploaded",
+          })
+          .returning();
+        created.push(row);
+      }
 
       res.json({ count: created.length, pieces: created });
     } catch (err: any) {
