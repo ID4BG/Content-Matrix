@@ -179,7 +179,8 @@ export default function CampaignDetail() {
   const [copied, setCopied] = useState(false);
   const [folderPickerOpen, setFolderPickerOpen] = useState(false);
   const folderPickerRef = useRef<HTMLDivElement>(null);
-  const [editingMemberId, setEditingMemberId] = useState<number | null>(null);
+  const [editMemberOpen, setEditMemberOpen] = useState(false);
+  const [editingMember, setEditingMember] = useState<CampaignMember | null>(null);
   const [editMemberFirstName, setEditMemberFirstName] = useState("");
   const [editMemberLastName, setEditMemberLastName] = useState("");
   const [editMemberRole, setEditMemberRole] = useState<MemberRole>("team_member");
@@ -258,17 +259,18 @@ export default function CampaignDetail() {
   };
 
   const startEditMember = (member: CampaignMember) => {
-    setEditingMemberId(member.id);
+    setEditingMember(member);
     setEditMemberFirstName(member.firstName);
     setEditMemberLastName(member.lastName);
     setEditMemberRole(member.role);
     setEditMemberPermissions([...member.permissions]);
+    setEditMemberOpen(true);
   };
 
   const handleSaveMember = () => {
-    if (!editingMemberId) return;
+    if (!editingMember) return;
     updateMember.mutate({
-      memberId: editingMemberId,
+      memberId: editingMember.id,
       firstName: editMemberFirstName.trim(),
       lastName: editMemberLastName.trim(),
       role: editMemberRole,
@@ -276,7 +278,8 @@ export default function CampaignDetail() {
     }, {
       onSuccess: () => {
         toast({ title: "Member updated" });
-        setEditingMemberId(null);
+        setEditMemberOpen(false);
+        setEditingMember(null);
       },
       onError: () => toast({ title: "Failed to update member", variant: "destructive" }),
     });
@@ -731,100 +734,64 @@ export default function CampaignDetail() {
         ) : (
           <div className="divide-y divide-border/30">
             {members.map(member => (
-              <div key={member.id}>
-                <div className="px-5 py-3 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0">
+              <div key={member.id} className="px-5 py-3.5 flex items-center justify-between gap-4 hover:bg-secondary/20 transition-colors">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-8 h-8 bg-secondary flex items-center justify-center shrink-0">
                     <RoleIcon role={member.role} />
-                    <div className="min-w-0">
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-sm font-semibold truncate">{memberDisplayName(member)}</p>
-                      <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">{ROLE_LABELS[member.role]}</p>
-                      {member.permissions.length > 0 && (
-                        <p className="text-[10px] text-muted-foreground/60 mt-0.5 truncate">
-                          {member.permissions.join(" · ")}
-                        </p>
+                      {!member.accepted && (
+                        <span className="text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 bg-amber-100 text-amber-700 border border-amber-200 shrink-0">
+                          Pending
+                        </span>
                       )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="rounded-none h-7 text-xs gap-1 text-muted-foreground hover:text-foreground"
-                      onClick={() => editingMemberId === member.id ? setEditingMemberId(null) : startEditMember(member)}
-                    >
-                      <Edit2 className="w-3 h-3" />
-                      Edit
-                    </Button>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button size="sm" variant="ghost" className="rounded-none h-7 text-muted-foreground hover:text-destructive px-2">
-                          <X className="w-3.5 h-3.5" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Remove {memberDisplayName(member)}?</AlertDialogTitle>
-                          <AlertDialogDescription>This will remove them from the campaign team.</AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={() => deleteMember.mutate(member.id)} className="bg-destructive text-white">Remove</AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                        {ROLE_LABELS[member.role]}
+                      </span>
+                      {member.permissions.length > 0 && (
+                        <>
+                          <span className="text-muted-foreground/30 text-[10px]">·</span>
+                          <span className="text-[10px] text-muted-foreground/60 truncate max-w-[200px]">
+                            {member.permissions.join(", ")}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-muted-foreground/50 mt-0.5 truncate">{member.email}</p>
                   </div>
                 </div>
-
-                {/* Inline edit panel */}
-                {editingMemberId === member.id && (
-                  <div className="px-5 pb-5 bg-secondary/5 border-t border-border/40 space-y-4 pt-4">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">First Name</label>
-                        <Input value={editMemberFirstName} onChange={e => setEditMemberFirstName(e.target.value)} className="rounded-none h-8 text-sm" />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Last Name</label>
-                        <Input value={editMemberLastName} onChange={e => setEditMemberLastName(e.target.value)} className="rounded-none h-8 text-sm" />
-                      </div>
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Role</label>
-                      <Select value={editMemberRole} onValueChange={(r) => { setEditMemberRole(r as MemberRole); setEditMemberPermissions(DEFAULT_PERMISSIONS[r as MemberRole]); }}>
-                        <SelectTrigger className="rounded-none h-8 text-sm">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="owner">Owner</SelectItem>
-                          <SelectItem value="marketer">Marketer</SelectItem>
-                          <SelectItem value="team_member">Team Member</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Permissions</label>
-                      <div className="border border-border/60 divide-y divide-border/40">
-                        {ALL_PERMISSIONS.map(({ key, label }) => (
-                          <div
-                            key={key}
-                            className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-secondary/10"
-                            onClick={() => toggleEditPermission(key)}
-                          >
-                            <Checkbox checked={editMemberPermissions.includes(key)} className="rounded-none" onClick={e => e.stopPropagation()} onCheckedChange={() => toggleEditPermission(key)} />
-                            <span className="text-sm">{label}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button size="sm" onClick={handleSaveMember} disabled={updateMember.isPending} className="bg-black text-white rounded-none gap-1.5">
-                        {updateMember.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
-                        Save Changes
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="rounded-none h-8 text-xs gap-1.5 font-semibold"
+                    onClick={() => startEditMember(member)}
+                  >
+                    <Edit2 className="w-3 h-3" />
+                    Edit
+                  </Button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button size="sm" variant="outline" className="rounded-none h-8 px-2 text-muted-foreground hover:text-destructive hover:border-destructive/50">
+                        <X className="w-3.5 h-3.5" />
                       </Button>
-                      <Button size="sm" variant="ghost" onClick={() => setEditingMemberId(null)} className="rounded-none">Cancel</Button>
-                    </div>
-                  </div>
-                )}
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Remove {memberDisplayName(member)}?</AlertDialogTitle>
+                        <AlertDialogDescription>This will remove them from the campaign team.</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => deleteMember.mutate(member.id)} className="bg-destructive text-white">Remove</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </div>
             ))}
           </div>
@@ -965,6 +932,95 @@ export default function CampaignDetail() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* Edit Member Dialog */}
+      <Dialog open={editMemberOpen} onOpenChange={(o) => { setEditMemberOpen(o); if (!o) setEditingMember(null); }}>
+        <DialogContent className="rounded-none sm:rounded-none max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Team Member</DialogTitle>
+            <DialogDescription>
+              {editingMember ? `Editing ${memberDisplayName(editingMember)} — ${editingMember.email}` : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">First Name</label>
+                <Input
+                  value={editMemberFirstName}
+                  onChange={e => setEditMemberFirstName(e.target.value)}
+                  className="rounded-none"
+                  placeholder="Jane"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Last Name</label>
+                <Input
+                  value={editMemberLastName}
+                  onChange={e => setEditMemberLastName(e.target.value)}
+                  className="rounded-none"
+                  placeholder="Smith"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Role</label>
+              <Select
+                value={editMemberRole}
+                onValueChange={(r) => {
+                  setEditMemberRole(r as MemberRole);
+                  setEditMemberPermissions(DEFAULT_PERMISSIONS[r as MemberRole]);
+                }}
+              >
+                <SelectTrigger className="rounded-none w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="owner">Owner</SelectItem>
+                  <SelectItem value="marketer">Marketer</SelectItem>
+                  <SelectItem value="team_member">Team Member</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[10px] text-muted-foreground/60">Changing the role resets permissions to the role default.</p>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Permissions</label>
+              <div className="border border-border/60 divide-y divide-border/40">
+                {ALL_PERMISSIONS.map(({ key, label }) => (
+                  <div
+                    key={key}
+                    className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-secondary/10 transition-colors"
+                    onClick={() => toggleEditPermission(key)}
+                  >
+                    <Checkbox
+                      checked={editMemberPermissions.includes(key)}
+                      className="rounded-none"
+                      onClick={e => e.stopPropagation()}
+                      onCheckedChange={() => toggleEditPermission(key)}
+                    />
+                    <span className="text-sm">{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => { setEditMemberOpen(false); setEditingMember(null); }}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveMember}
+              disabled={updateMember.isPending}
+              className="bg-black text-white rounded-none gap-1.5"
+            >
+              {updateMember.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }
