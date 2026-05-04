@@ -129,6 +129,15 @@ export default function CampaignDetail() {
     { query: { enabled: !!id, queryKey: getListContentPiecesQueryKey({ campaignId: id }) } }
   );
   const { data: folders } = useListFolders();
+  const { data: memberFolder } = useQuery<{ id: number; title: string } | null>({
+    queryKey: ["folder-info", campaign?.folderId],
+    queryFn: async () => {
+      const res = await fetch(`/api/folders/${campaign!.folderId}/info`);
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!campaign?.folderId && campaign?.userId !== user?.id,
+  });
   const { data: members, isLoading: isMembersLoading } = useCampaignMembers(id);
   const inviteMember = useInviteMember(id);
   const updateMember = useUpdateCampaignMember({
@@ -538,56 +547,65 @@ export default function CampaignDetail() {
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
             <FolderOpen className="w-3 h-3" /> Folder
           </p>
-          <button
-            onClick={() => setFolderPickerOpen(o => !o)}
-            className="flex items-center gap-1.5 group text-left w-full"
-          >
-            {updateCampaign.isPending ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
-            ) : folderLabel ? (
-              <span className="font-semibold text-sm group-hover:underline underline-offset-2 truncate">{folderLabel}</span>
-            ) : (
-              <span className="text-sm text-muted-foreground italic group-hover:text-foreground transition-colors">
-                Add to folder…
-              </span>
-            )}
-            <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0 group-hover:text-foreground transition-colors" />
-          </button>
 
-          {folderPickerOpen && (
-            <div className="absolute left-0 top-full mt-1 z-50 w-56 bg-popover border border-border shadow-md">
-              <div className="p-1.5 border-b border-border">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-2 py-1">
-                  Move to folder
-                </p>
-              </div>
-              <div className="max-h-52 overflow-y-auto">
-                {!folders?.length ? (
-                  <p className="text-xs text-muted-foreground px-3 py-3 italic">No folders yet</p>
-                ) : folders.map(f => (
-                  <button
-                    key={f.id}
-                    onClick={() => handleMoveToFolder(f.id)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-secondary transition-colors text-left ${campaign.folderId === f.id ? "font-semibold" : ""}`}
-                  >
-                    <FolderOpen className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
-                    <span className="truncate">{f.parentFolderName || f.title}</span>
-                    {campaign.folderId === f.id && <Check className="w-3.5 h-3.5 ml-auto shrink-0 text-foreground" />}
-                  </button>
-                ))}
-              </div>
-              {campaign.folderId != null && (
-                <div className="border-t border-border p-1">
-                  <button
-                    onClick={() => handleMoveToFolder(null)}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
-                  >
-                    <FolderMinus className="w-3.5 h-3.5 shrink-0" />
-                    Remove from folder
-                  </button>
+          {isOwner ? (
+            <>
+              <button
+                onClick={() => setFolderPickerOpen(o => !o)}
+                className="flex items-center gap-1.5 group text-left w-full"
+              >
+                {updateCampaign.isPending ? (
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+                ) : folderLabel ? (
+                  <span className="font-semibold text-sm group-hover:underline underline-offset-2 truncate">{folderLabel}</span>
+                ) : (
+                  <span className="text-sm text-muted-foreground italic group-hover:text-foreground transition-colors">
+                    Add to folder…
+                  </span>
+                )}
+                <ChevronDown className="w-3 h-3 text-muted-foreground shrink-0 group-hover:text-foreground transition-colors" />
+              </button>
+
+              {folderPickerOpen && (
+                <div className="absolute left-0 top-full mt-1 z-50 w-56 bg-popover border border-border shadow-md">
+                  <div className="p-1.5 border-b border-border">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-2 py-1">
+                      Move to folder
+                    </p>
+                  </div>
+                  <div className="max-h-52 overflow-y-auto">
+                    {!folders?.length ? (
+                      <p className="text-xs text-muted-foreground px-3 py-3 italic">No folders yet</p>
+                    ) : folders.map(f => (
+                      <button
+                        key={f.id}
+                        onClick={() => handleMoveToFolder(f.id)}
+                        className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm hover:bg-secondary transition-colors text-left ${campaign.folderId === f.id ? "font-semibold" : ""}`}
+                      >
+                        <FolderOpen className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+                        <span className="truncate">{f.parentFolderName || f.title}</span>
+                        {campaign.folderId === f.id && <Check className="w-3.5 h-3.5 ml-auto shrink-0 text-foreground" />}
+                      </button>
+                    ))}
+                  </div>
+                  {campaign.folderId != null && (
+                    <div className="border-t border-border p-1">
+                      <button
+                        onClick={() => handleMoveToFolder(null)}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-destructive hover:bg-destructive/10 transition-colors"
+                      >
+                        <FolderMinus className="w-3.5 h-3.5 shrink-0" />
+                        Remove from folder
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
-            </div>
+            </>
+          ) : (
+            <p className="text-sm font-semibold truncate">
+              {memberFolder?.title ?? <span className="italic text-muted-foreground">—</span>}
+            </p>
           )}
         </div>
 

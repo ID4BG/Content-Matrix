@@ -167,6 +167,19 @@ router.post("/folders/:id/invite", requireAuth, async (req, res) => {
   });
 });
 
+router.get("/folders/:id/info", requireAuth, async (req, res) => {
+  const folderId = parseInt(req.params.id, 10);
+  if (isNaN(folderId)) return res.status(400).json({ error: "Invalid folder id" });
+
+  const [folder] = await db
+    .select({ id: foldersTable.id, title: foldersTable.title })
+    .from(foldersTable)
+    .where(eq(foldersTable.id, folderId));
+
+  if (!folder) return res.status(404).json({ error: "Folder not found" });
+  res.json(folder);
+});
+
 router.get("/shared/folder/:token", async (req, res) => {
   const { token } = GetSharedFolderParams.parse(req.params);
 

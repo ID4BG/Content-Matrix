@@ -1,64 +1,84 @@
 import { Router, type IRouter } from "express";
 import { db } from "@workspace/db";
-import { campaignsTable, contentPiecesTable, activityTable, foldersTable, campaignMembersTable } from "@workspace/db";
-import { eq, sql, and, inArray } from "drizzle-orm";
+import {
+  campaignsTable, contentPiecesTable, activityTable, foldersTable, campaignMembersTable,
+} from "@workspace/db";
+import { eq, sql, and, inArray, or } from "drizzle-orm";
 import { clerkClient } from "@clerk/express";
 import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-router.get("/dashboard/summary", requireAuth, async (req, res) => {
-  const userId = (req as any).userId;
-
-  const [campaignStats] = await db
-    .select({ total: sql<number>`count(*)`.mapWith(Number) })
-    .from(campaignsTable)
-    .where(eq(campaignsTable.userId, userId));
-
-  const campaignIds = await db
+async function getAllAccessibleCampaignIds(userId: string): Promise<number[]> {
+  const ownedRows = await db
     .select({ id: campaignsTable.id })
     .from(campaignsTable)
     .where(eq(campaignsTable.userId, userId));
 
-  const ids = campaignIds.map((c) => c.id);
+  let memberIds: number[] = [];
+  try {
+    const clerkUser = await clerkClient.users.getUser(userId);
+    const email = clerkUser.emailAddresses?.[0]?.emailAddress;
+    if (email) {
+      const memberRows = await db
+        .select({ campaignId: campaignMembersTable.campaignId })
+        .from(campaignMembersTable)
+        .where(and(
+          eq(campaignMembersTable.email, email),
+          eq(campaignMembersTable.accepted, true),
+        ));
+      memberIds = memberRows.map(r => r.campaignId);
+    }
+  } catch { /* non-fatal */ }
 
-  const [pieceStats] = ids.length
+  return [...new Set([...ownedRows.map(c => c.id), ...memberIds])];
+}
+
+router.get("/dashboard/summary", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
+
+  const allIds = await getAllAccessibleCampaignIds(userId);
+  const totalCampaigns = allIds.length;
+
+  const [pieceStats] = allIds.length
     ? await db
         .select({ total: sql<number>`count(*)`.mapWith(Number) })
         .from(contentPiecesTable)
-        .where(sql`${contentPiecesTable.campaignId} = ANY(${sql.raw(`ARRAY[${ids.join(",")}]`)})`)
+        .where(inArray(contentPiecesTable.campaignId, allIds))
     : [{ total: 0 }];
 
-  const statusCounts = ids.length
+  const statusCounts = allIds.length
     ? await db
         .select({
           status: contentPiecesTable.status,
           count: sql<number>`count(*)`.mapWith(Number),
         })
         .from(contentPiecesTable)
-        .where(sql`${contentPiecesTable.campaignId} = ANY(${sql.raw(`ARRAY[${ids.join(",")}]`)})`)
+        .where(inArray(contentPiecesTable.campaignId, allIds))
         .groupBy(contentPiecesTable.status)
     : [];
 
-  const campaignStatusCounts = await db
-    .select({
-      status: campaignsTable.status,
-      count: sql<number>`count(*)`.mapWith(Number),
-    })
-    .from(campaignsTable)
-    .where(eq(campaignsTable.userId, userId))
-    .groupBy(campaignsTable.status);
+  const campaignStatusCounts = allIds.length
+    ? await db
+        .select({
+          status: campaignsTable.status,
+          count: sql<number>`count(*)`.mapWith(Number),
+        })
+        .from(campaignsTable)
+        .where(inArray(campaignsTable.id, allIds))
+        .groupBy(campaignsTable.status)
+    : [];
 
   const [folderStats] = await db
     .select({ total: sql<number>`count(*)`.mapWith(Number) })
     .from(foldersTable)
     .where(eq(foldersTable.userId, userId));
 
-  const statusMap = Object.fromEntries(statusCounts.map((s) => [s.status, s.count]));
-  const campaignStatusMap = Object.fromEntries(campaignStatusCounts.map((s) => [s.status, s.count]));
+  const statusMap = Object.fromEntries(statusCounts.map(s => [s.status, s.count]));
+  const campaignStatusMap = Object.fromEntries(campaignStatusCounts.map(s => [s.status, s.count]));
 
   res.json({
-    totalCampaigns: campaignStats?.total ?? 0,
+    totalCampaigns,
     totalContentPieces: pieceStats?.total ?? 0,
     approvedPieces: statusMap["approved"] ?? 0,
     pendingReview: statusMap["in_review"] ?? 0,
@@ -71,39 +91,9 @@ router.get("/dashboard/summary", requireAuth, async (req, res) => {
 router.get("/dashboard/activity", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
 
-  // Campaigns owned by this user
-  const ownedRows = await db
-    .select({ id: campaignsTable.id })
-    .from(campaignsTable)
-    .where(eq(campaignsTable.userId, userId));
+  const allIds = await getAllAccessibleCampaignIds(userId);
 
-  // Campaigns where this user is an invited member (looked up by email)
-  let memberIds: number[] = [];
-  try {
-    const clerkUser = await clerkClient.users.getUser(userId);
-    const email = clerkUser.emailAddresses?.[0]?.emailAddress;
-    if (email) {
-      const memberRows = await db
-        .select({ campaignId: campaignMembersTable.campaignId })
-        .from(campaignMembersTable)
-        .innerJoin(campaignsTable, eq(campaignMembersTable.campaignId, campaignsTable.id))
-        .where(
-          and(
-            eq(campaignMembersTable.email, email),
-            eq(campaignMembersTable.accepted, true)
-          )
-        );
-      memberIds = memberRows.map((r) => r.campaignId);
-    }
-  } catch {
-    // Non-fatal — proceed with owned campaigns only
-  }
-
-  const allIds = [...new Set([...ownedRows.map((c) => c.id), ...memberIds])];
-
-  if (!allIds.length) {
-    return res.json([]);
-  }
+  if (!allIds.length) return res.json([]);
 
   const activity = await db
     .select()
