@@ -993,3 +993,15 @@ export const GetRecentActivityResponseItem = zod.object({
 export const GetRecentActivityResponse = zod.array(
   GetRecentActivityResponseItem,
 );
+
+/**
+ * @summary Accept all pending campaign invites for the authenticated user
+ */
+export const AcceptPendingInvitesResponseItem = zod.object({
+  campaignId: zod.number(),
+  campaignTitle: zod.string(),
+  role: zod.enum(["owner", "marketer", "team_member"]),
+});
+export const AcceptPendingInvitesResponse = zod.array(
+  AcceptPendingInvitesResponseItem,
+);

@@ -380,6 +380,21 @@ export interface ActivityItem {
   createdAt: string;
 }
 
+export type AcceptedInviteRole =
+  (typeof AcceptedInviteRole)[keyof typeof AcceptedInviteRole];
+
+export const AcceptedInviteRole = {
+  owner: "owner",
+  marketer: "marketer",
+  team_member: "team_member",
+} as const;
+
+export interface AcceptedInvite {
+  campaignId: number;
+  campaignTitle: string;
+  role: AcceptedInviteRole;
+}
+
 export type ListCampaignsParams = {
   folderId?: number | null;
 };

@@ -17,6 +17,7 @@ import type {
 } from "@tanstack/react-query";
 
 import type {
+  AcceptedInvite,
   ActivityItem,
   Campaign,
   CampaignMember,
@@ -2953,3 +2954,84 @@ export function useGetRecentActivity<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Accept all pending campaign invites for the authenticated user
+ */
+export const getAcceptPendingInvitesUrl = () => {
+  return `/api/invites/accept-pending`;
+};
+
+export const acceptPendingInvites = async (
+  options?: RequestInit,
+): Promise<AcceptedInvite[]> => {
+  return customFetch<AcceptedInvite[]>(getAcceptPendingInvitesUrl(), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAcceptPendingInvitesMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acceptPendingInvites>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof acceptPendingInvites>>,
+  TError,
+  void,
+  TContext
+> => {
+  const mutationKey = ["acceptPendingInvites"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof acceptPendingInvites>>,
+    void
+  > = () => {
+    return acceptPendingInvites(requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AcceptPendingInvitesMutationResult = NonNullable<
+  Awaited<ReturnType<typeof acceptPendingInvites>>
+>;
+
+export type AcceptPendingInvitesMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Accept all pending campaign invites for the authenticated user
+ */
+export const useAcceptPendingInvites = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof acceptPendingInvites>>,
+    TError,
+    void,
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof acceptPendingInvites>>,
+  TError,
+  void,
+  TContext
+> => {
+  return useMutation(getAcceptPendingInvitesMutationOptions(options));
+};

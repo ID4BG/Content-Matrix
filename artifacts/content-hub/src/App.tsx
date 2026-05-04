@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk } from '@clerk/react';
+import { ClerkProvider, SignIn, SignUp, Show, useClerk, useUser } from '@clerk/react';
 import { publishableKeyFromHost } from '@clerk/react/internal';
 import { shadcn } from '@clerk/themes';
 import { Switch, Route, Router as WouterRouter, Redirect, useLocation } from 'wouter';
@@ -7,6 +7,8 @@ import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/reac
 import { ThemeProvider } from "@/contexts/theme-context";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useAcceptPendingInvites } from "@workspace/api-client-react";
+import { useToast } from "@/hooks/use-toast";
 
 import { Layout } from "@/components/layout";
 import Dashboard from "@/pages/dashboard";
@@ -54,6 +56,36 @@ function ClerkQueryClientCacheInvalidator() {
     });
     return unsub;
   }, [addListener, qc]);
+  return null;
+}
+
+function PendingInviteAcceptor() {
+  const { isSignedIn } = useUser();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const { mutate: acceptInvites } = useAcceptPendingInvites();
+  const firedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isSignedIn || firedRef.current) return;
+    firedRef.current = true;
+    acceptInvites(undefined, {
+      onSuccess(accepted) {
+        if (!accepted?.length) return;
+        accepted.forEach(invite => {
+          toast({
+            title: `You've joined a campaign`,
+            description: `"${invite.campaignTitle}" — you're now ${invite.role.replace("_", " ")}`,
+            duration: 7000,
+          });
+        });
+        qc.invalidateQueries({ queryKey: ["listCampaigns"] });
+        qc.invalidateQueries({ queryKey: ["getDashboardSummary"] });
+        qc.invalidateQueries({ queryKey: ["getRecentActivity"] });
+      },
+    });
+  }, [isSignedIn, acceptInvites, toast, qc]);
+
   return null;
 }
 
@@ -172,6 +204,7 @@ function ClerkProviderWithRoutes() {
     >
       <QueryClientProvider client={queryClient}>
         <ClerkQueryClientCacheInvalidator />
+        <PendingInviteAcceptor />
         <TooltipProvider>
           <Router />
         </TooltipProvider>

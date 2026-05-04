@@ -6,6 +6,8 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from "./acceptedInvite";
+export * from "./acceptedInviteRole";
 export * from "./activityItem";
 export * from "./activityItemType";
 export * from "./campaign";
