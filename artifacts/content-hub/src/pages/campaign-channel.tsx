@@ -3,10 +3,20 @@ import { format } from "date-fns";
 import {
   ArrowLeft, Plus, Loader2, Calendar, MessageSquare, CheckCircle2,
   PlayCircle, ImageIcon, Clock, Send, X, Crown, Briefcase, XCircle,
-  FileUp, FileText, CheckCheck,
+  FileUp, FileText, CheckCheck, GripVertical,
 } from "lucide-react";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+
+import {
+  DndContext, closestCenter, KeyboardSensor, PointerSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext, sortableKeyboardCoordinates, useSortable,
+  verticalListSortingStrategy, arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 
 import {
   useListContentPieces, getListContentPiecesQueryKey,
@@ -84,6 +94,117 @@ function PieceThumbnail({ piece }: { piece: ContentPiece }) {
   );
 }
 
+interface SortablePieceRowProps {
+  piece: ContentPiece;
+  campaignId: number;
+  onReview: (id: number) => void;
+  onDelete: (id: number) => void;
+  onDisapprove: (id: number) => void;
+  isDisapprovePending: boolean;
+}
+
+function SortablePieceRow({ piece, campaignId, onReview, onDelete, onDisapprove, isDisapprovePending }: SortablePieceRowProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: piece.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : 1,
+    position: isDragging ? ("relative" as const) : undefined,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`group border transition-colors bg-card flex items-start gap-3 p-4 ${isDragging ? "border-black shadow-lg" : "border-border hover:border-black"}`}
+    >
+      <button
+        {...attributes}
+        {...listeners}
+        className="flex items-center self-stretch cursor-grab active:cursor-grabbing text-muted-foreground/25 hover:text-muted-foreground/60 transition-colors shrink-0 touch-none pt-0.5"
+        tabIndex={-1}
+        aria-label="Drag to reorder"
+      >
+        <GripVertical className="w-4 h-4" />
+      </button>
+
+      <Link href={`/campaigns/${campaignId}/pieces/${piece.id}`}>
+        <PieceThumbnail piece={piece} />
+      </Link>
+
+      <div className="flex-1 min-w-0 space-y-1">
+        <div className="flex items-start justify-between gap-2">
+          <Link href={`/campaigns/${campaignId}/pieces/${piece.id}`} className="hover:underline underline-offset-2">
+            <h3 className="font-bold text-sm leading-tight line-clamp-1">{piece.title}</h3>
+          </Link>
+          <StatusBadge status={piece.status} />
+        </div>
+
+        {piece.scheduledDate && (
+          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1">
+            <Calendar className="w-3 h-3" />
+            {format(new Date(piece.scheduledDate), 'EEE, MMM d, yyyy')}
+          </p>
+        )}
+
+        {piece.bodyText && (
+          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{piece.bodyText}</p>
+        )}
+
+        <div className="flex items-center gap-2 pt-1">
+          <span className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1">
+            <MessageSquare className="w-3 h-3" />
+            {piece.commentCount}
+          </span>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1.5 shrink-0">
+        {piece.status === "approved" ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-none gap-1.5 text-xs h-8 border-amber-300 text-amber-700 hover:bg-amber-50"
+            onClick={() => onDisapprove(piece.id)}
+            disabled={isDisapprovePending}
+          >
+            <XCircle className="w-3 h-3" />
+            Disapprove
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            variant="outline"
+            className="rounded-none gap-1.5 text-xs h-8 border-border"
+            onClick={() => onReview(piece.id)}
+          >
+            <Send className="w-3 h-3" />
+            Review
+          </Button>
+        )}
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button size="sm" variant="ghost" className="rounded-none h-8 text-muted-foreground hover:text-destructive px-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <X className="w-3.5 h-3.5" />
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete piece?</AlertDialogTitle>
+              <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={() => onDelete(piece.id)} className="bg-destructive text-white">Delete</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
+    </div>
+  );
+}
+
 interface ImportedPiece {
   title: string;
   bodyText: string;
@@ -120,6 +241,55 @@ export default function CampaignChannel() {
   const deletePiece = useDeleteContentPiece();
 
   const queryKey = getListContentPiecesQueryKey({ campaignId });
+
+  // ── Local drag order ──────────────────────────────────────────────────────
+  const [localOrder, setLocalOrder] = useState<number[]>([]);
+  const pieceIdKey = pieces.map(p => p.id).sort().join(",");
+  useEffect(() => {
+    setLocalOrder(pieces.map(p => p.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pieceIdKey]);
+
+  const displayPieces = localOrder.length > 0
+    ? localOrder.map(id => pieces.find(p => p.id === id)).filter(Boolean) as ContentPiece[]
+    : pieces;
+
+  // ── DnD sensors ──────────────────────────────────────────────────────────
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const reorderMutation = useMutation({
+    mutationFn: async (items: { id: number; sortOrder: number }[]) => {
+      const res = await fetch("/api/content-pieces/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items }),
+      });
+      if (!res.ok) throw new Error("Reorder failed");
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey });
+      toast({ title: "Failed to save order", variant: "destructive" });
+    },
+  });
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = localOrder.indexOf(active.id as number);
+    const newIndex = localOrder.indexOf(over.id as number);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const newOrder = arrayMove(localOrder, oldIndex, newIndex);
+    setLocalOrder(newOrder);
+
+    reorderMutation.mutate(
+      newOrder.map((id, i) => ({ id, sortOrder: i + 1 }))
+    );
+  };
 
   const submitForReview = useMutation({
     mutationFn: async ({ pieceId, reviewerMemberId, note }: { pieceId: number; reviewerMemberId?: number | null; note?: string }) => {
@@ -387,84 +557,23 @@ export default function CampaignChannel() {
           </div>
         </div>
       ) : (
-        <div className="space-y-2">
-          {pieces.map(piece => (
-            <div key={piece.id} className="group border border-border hover:border-black transition-colors bg-card flex items-start gap-4 p-4">
-              <Link href={`/campaigns/${campaignId}/pieces/${piece.id}`}>
-                <PieceThumbnail piece={piece} />
-              </Link>
-
-              <div className="flex-1 min-w-0 space-y-1">
-                <div className="flex items-start justify-between gap-2">
-                  <Link href={`/campaigns/${campaignId}/pieces/${piece.id}`} className="hover:underline underline-offset-2">
-                    <h3 className="font-bold text-sm leading-tight line-clamp-1">{piece.title}</h3>
-                  </Link>
-                  <StatusBadge status={piece.status} />
-                </div>
-
-                {piece.scheduledDate && (
-                  <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1">
-                    <Calendar className="w-3 h-3" />
-                    {format(new Date(piece.scheduledDate), 'EEE, MMM d, yyyy')}
-                  </p>
-                )}
-
-                {piece.bodyText && (
-                  <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{piece.bodyText}</p>
-                )}
-
-                <div className="flex items-center gap-2 pt-1">
-                  <span className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1">
-                    <MessageSquare className="w-3 h-3" />
-                    {piece.commentCount}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1.5 shrink-0">
-                {piece.status === "approved" ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-none gap-1.5 text-xs h-8 border-amber-300 text-amber-700 hover:bg-amber-50"
-                    onClick={() => handleDisapprove(piece.id)}
-                    disabled={disapprovePiece.isPending}
-                  >
-                    <XCircle className="w-3 h-3" />
-                    Disapprove
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="rounded-none gap-1.5 text-xs h-8 border-border"
-                    onClick={() => openReview(piece.id)}
-                  >
-                    <Send className="w-3 h-3" />
-                    Review
-                  </Button>
-                )}
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button size="sm" variant="ghost" className="rounded-none h-8 text-muted-foreground hover:text-destructive px-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <X className="w-3.5 h-3.5" />
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete piece?</AlertDialogTitle>
-                      <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => handleDeletePiece(piece.id)} className="bg-destructive text-white">Delete</AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </div>
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={localOrder} strategy={verticalListSortingStrategy}>
+            <div className="space-y-2">
+              {displayPieces.map(piece => (
+                <SortablePieceRow
+                  key={piece.id}
+                  piece={piece}
+                  campaignId={campaignId}
+                  onReview={openReview}
+                  onDelete={handleDeletePiece}
+                  onDisapprove={handleDisapprove}
+                  isDisapprovePending={disapprovePiece.isPending}
+                />
+              ))}
             </div>
-          ))}
-        </div>
+          </SortableContext>
+        </DndContext>
       )}
 
       {/* Add Piece Dialog */}
@@ -535,7 +644,7 @@ export default function CampaignChannel() {
                   </SelectContent>
                 </Select>
               ) : (
-                <p className="text-sm text-muted-foreground italic">No owners or marketers on this campaign yet.</p>
+                <p className="text-xs text-muted-foreground py-2">No owners or marketers in this campaign.</p>
               )}
             </div>
             <div className="space-y-1.5">

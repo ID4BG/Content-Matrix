@@ -91,14 +91,12 @@ function parseDocumentText(text: string): ParsedPiece[] {
     /^Script(?:\s+Beats)?\s*:\s*/i,     // "Script:" / "Script Beats:"
     /^Hook\s*\([^)]*\)\s*:\s*/i,        // "Hook (First 2 seconds…):"
     /^CTA\s*\([^)]*\)\s*:\s*/i,         // "CTA (End Screen):" / "CTA (End of Video):"
-    /^Post Caption(?:\s*\([^)]*\))?\s*:\s*/i, // Facebook "Post Caption (paste…):"
   ];
 
   // ── Copy labels: only collect body content AFTER these (text formats) ────
-  // Facebook's "Post Caption" is intentionally NOT here — it goes via
-  // stripLabelPatterns so slide content before it is also collected.
+  // Facebook "Post Caption" is here so only the caption is collected, not slides.
   const copyLabelPattern =
-    /^(?:Tweet Copy|Post Copy|Body Copy|Body|Copy|Text|Voiceover|Narration)\s*:/i;
+    /^(?:Tweet Copy|Post Copy|Body Copy|Body|Copy|Text|Voiceover|Narration|Post Caption(?:\s*\([^)]*\))?)\s*:/i;
 
   return sections.map((section) => {
     const hasCopyLabel = section.lines.some((l) => copyLabelPattern.test(l));
@@ -221,9 +219,10 @@ router.post(
         });
       }
 
-      // Sequential inserts preserve document order in DB IDs
+      // Sequential inserts with explicit sortOrder preserve document order
       const created: ContentPiece[] = [];
-      for (const piece of parsed) {
+      for (let i = 0; i < parsed.length; i++) {
+        const piece = parsed[i];
         const [row] = await db
           .insert(contentPiecesTable)
           .values({
@@ -232,6 +231,7 @@ router.post(
             title: piece.title,
             bodyText: piece.bodyText || null,
             status: "uploaded",
+            sortOrder: i + 1,
           })
           .returning();
         created.push(row);

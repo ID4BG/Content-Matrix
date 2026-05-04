@@ -7,7 +7,7 @@ import {
   campaignMembersTable,
   campaignsTable,
 } from "@workspace/db";
-import { eq, sql, and } from "drizzle-orm";
+import { eq, sql, and, max } from "drizzle-orm";
 import {
   CreateContentPieceBody,
   UpdateContentPieceBody,
@@ -40,7 +40,7 @@ router.get("/content-pieces", async (req, res) => {
   if (params.channel) conditions.push(eq(contentPiecesTable.channel, params.channel as any));
 
   const pieces = conditions.length
-    ? await db.select().from(contentPiecesTable).where(and(...conditions)).orderBy(sql`${contentPiecesTable.scheduledDate} asc nulls last, ${contentPiecesTable.createdAt} asc`)
+    ? await db.select().from(contentPiecesTable).where(and(...conditions)).orderBy(sql`${contentPiecesTable.sortOrder} asc, ${contentPiecesTable.id} asc`)
     : await db.select().from(contentPiecesTable).orderBy(sql`${contentPiecesTable.createdAt} desc`);
 
   const commentCounts = await db
@@ -53,8 +53,26 @@ router.get("/content-pieces", async (req, res) => {
   res.json(pieces.map((p) => ({ ...p, commentCount: countMap.get(p.id) ?? 0 })));
 });
 
+router.post("/content-pieces/reorder", async (req, res) => {
+  const { items } = req.body as { items: { id: number; sortOrder: number }[] };
+  if (!Array.isArray(items)) return res.status(400).json({ error: "items must be an array" });
+  for (const item of items) {
+    await db
+      .update(contentPiecesTable)
+      .set({ sortOrder: item.sortOrder, updatedAt: new Date() })
+      .where(eq(contentPiecesTable.id, item.id));
+  }
+  res.json({ ok: true });
+});
+
 router.post("/content-pieces", async (req, res) => {
   const body = CreateContentPieceBody.parse(req.body);
+
+  const [maxRow] = await db
+    .select({ maxOrder: max(contentPiecesTable.sortOrder) })
+    .from(contentPiecesTable)
+    .where(and(eq(contentPiecesTable.campaignId, body.campaignId), eq(contentPiecesTable.channel, body.channel as any)));
+
   const insertData: any = {
     campaignId: body.campaignId,
     channel: body.channel,
@@ -63,6 +81,7 @@ router.post("/content-pieces", async (req, res) => {
     mediaUrl: body.mediaUrl ?? null,
     mediaType: body.mediaType ?? null,
     status: "uploaded",
+    sortOrder: (maxRow?.maxOrder ?? 0) + 1,
   };
   if (body.scheduledDate) insertData.scheduledDate = new Date(body.scheduledDate);
 
