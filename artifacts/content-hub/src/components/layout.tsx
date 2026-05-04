@@ -16,37 +16,40 @@ const LAST_SEEN_KEY = "content-matrix-notif-seen";
 
 function activityIcon(type: ActivityItem["type"]) {
   switch (type) {
-    case "campaign_created":   return <FolderPlus className="w-3.5 h-3.5 text-blue-600" />;
-    case "campaign_approved":  return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />;
-    case "piece_uploaded":     return <Upload className="w-3.5 h-3.5 text-indigo-500" />;
-    case "piece_approved":     return <CheckCircle className="w-3.5 h-3.5 text-blue-500" />;
-    case "comment_added":      return <MessageSquare className="w-3.5 h-3.5 text-amber-500" />;
-    case "folder_created":     return <FolderOpen className="w-3.5 h-3.5 text-purple-500" />;
-    default:                   return <Bell className="w-3.5 h-3.5 text-muted-foreground" />;
+    case "campaign_created":            return <FolderPlus className="w-3.5 h-3.5 text-blue-600" />;
+    case "campaign_approved":           return <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />;
+    case "piece_uploaded":              return <Upload className="w-3.5 h-3.5 text-indigo-500" />;
+    case "piece_approved":              return <CheckCircle className="w-3.5 h-3.5 text-blue-500" />;
+    case "piece_submitted_for_review":  return <Bell className="w-3.5 h-3.5 text-orange-500" />;
+    case "comment_added":               return <MessageSquare className="w-3.5 h-3.5 text-amber-500" />;
+    case "folder_created":              return <FolderOpen className="w-3.5 h-3.5 text-purple-500" />;
+    default:                            return <Bell className="w-3.5 h-3.5 text-muted-foreground" />;
   }
 }
 
 function activityLabel(type: ActivityItem["type"]) {
   switch (type) {
-    case "campaign_created":   return "Campaign created";
-    case "campaign_approved":  return "Campaign approved";
-    case "piece_uploaded":     return "Content uploaded";
-    case "piece_approved":     return "Content approved";
-    case "comment_added":      return "New comment";
-    case "folder_created":     return "Folder created";
-    default:                   return "Activity";
+    case "campaign_created":            return "Campaign created";
+    case "campaign_approved":           return "Campaign approved";
+    case "piece_uploaded":              return "Content uploaded";
+    case "piece_approved":              return "Content approved";
+    case "piece_submitted_for_review":  return "Submitted for review";
+    case "comment_added":               return "New comment";
+    case "folder_created":              return "Folder created";
+    default:                            return "Activity";
   }
 }
 
 function activityDotColor(type: ActivityItem["type"]) {
   switch (type) {
-    case "campaign_created":  return "bg-blue-500";
-    case "campaign_approved": return "bg-emerald-500";
-    case "piece_uploaded":    return "bg-indigo-500";
-    case "piece_approved":    return "bg-blue-400";
-    case "comment_added":     return "bg-amber-500";
-    case "folder_created":    return "bg-purple-500";
-    default:                  return "bg-muted-foreground";
+    case "campaign_created":            return "bg-blue-500";
+    case "campaign_approved":           return "bg-emerald-500";
+    case "piece_uploaded":              return "bg-indigo-500";
+    case "piece_approved":              return "bg-blue-400";
+    case "piece_submitted_for_review":  return "bg-orange-500";
+    case "comment_added":               return "bg-amber-500";
+    case "folder_created":              return "bg-purple-500";
+    default:                            return "bg-muted-foreground";
   }
 }
 

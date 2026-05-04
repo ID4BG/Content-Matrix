@@ -30,7 +30,7 @@ router.post("/comments", async (req, res) => {
     await db.insert(activityTable).values({
       type: "comment_added",
       description: `${body.authorName} commented on "${piece.title}"`,
-      entityId: piece.id,
+      entityId: piece.campaignId,
       entityTitle: piece.title,
     });
   }

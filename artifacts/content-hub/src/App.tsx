@@ -129,9 +129,9 @@ function Router() {
       <Route path="/campaigns/new"><PrivateRoute component={CampaignNew} /></Route>
       <Route path="/campaigns/:id/calendar"><PrivateRoute component={CampaignCalendar} /></Route>
       <Route path="/campaigns/:id/pipeline"><PrivateRoute component={CampaignPipeline} /></Route>
-      <Route path="/campaigns/:id"><PrivateRoute component={CampaignDetail} /></Route>
       <Route path="/campaigns/:id/channels/:channel"><PrivateRoute component={CampaignChannel} /></Route>
       <Route path="/campaigns/:campaignId/pieces/:pieceId"><PrivateRoute component={PieceDetail} /></Route>
+      <Route path="/campaigns/:id"><PrivateRoute component={CampaignDetail} /></Route>
       <Route path="/folders"><PrivateRoute component={FolderList} /></Route>
       <Route path="/folders/:id"><PrivateRoute component={FolderDetail} /></Route>
       <Route path="/settings"><PrivateRoute component={Settings} /></Route>

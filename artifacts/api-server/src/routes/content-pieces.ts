@@ -71,7 +71,7 @@ router.post("/content-pieces", async (req, res) => {
   await db.insert(activityTable).values({
     type: "piece_uploaded",
     description: `Content piece "${piece.title}" was uploaded`,
-    entityId: piece.id,
+    entityId: piece.campaignId,
     entityTitle: piece.title,
   });
 
@@ -130,7 +130,7 @@ router.post("/content-pieces/:id/approve", async (req, res) => {
   await db.insert(activityTable).values({
     type: "piece_approved",
     description: `Content piece "${updated.title}" was approved`,
-    entityId: updated.id,
+    entityId: updated.campaignId,
     entityTitle: updated.title,
   });
 
@@ -167,6 +167,38 @@ router.post("/content-pieces/:id/submit-review", async (req, res) => {
     .where(eq(contentPiecesTable.id, id))
     .returning();
 
+  const [campaign] = await db
+    .select()
+    .from(campaignsTable)
+    .where(eq(campaignsTable.id, piece.campaignId));
+
+  await db.insert(activityTable).values({
+    type: "piece_submitted_for_review",
+    description: `"${piece.title}" was submitted for review`,
+    entityId: piece.campaignId,
+    entityTitle: piece.title,
+  });
+
+  const domain = process.env.REPLIT_DOMAINS?.split(",")[0] ?? "localhost";
+  const pieceUrl = `https://${domain}/campaigns/${piece.campaignId}/pieces/${piece.id}`;
+
+  const owners = await db
+    .select()
+    .from(campaignMembersTable)
+    .where(and(eq(campaignMembersTable.campaignId, piece.campaignId), eq(campaignMembersTable.role, "owner")));
+
+  for (const owner of owners) {
+    if (body.reviewerMemberId && owner.id === body.reviewerMemberId) continue;
+    await sendReviewNotification({
+      to: owner.email,
+      reviewerName: owner.firstName ? `${owner.firstName} ${owner.lastName}`.trim() : owner.email,
+      pieceTitle: piece.title,
+      campaignTitle: campaign?.title ?? "Campaign",
+      note: body.note,
+      pieceUrl,
+    }).catch(() => {});
+  }
+
   if (body.reviewerMemberId) {
     const [reviewer] = await db
       .select()
@@ -174,14 +206,6 @@ router.post("/content-pieces/:id/submit-review", async (req, res) => {
       .where(eq(campaignMembersTable.id, body.reviewerMemberId));
 
     if (reviewer) {
-      const [campaign] = await db
-        .select()
-        .from(campaignsTable)
-        .where(eq(campaignsTable.id, piece.campaignId));
-
-      const domain = process.env.REPLIT_DOMAINS?.split(",")[0] ?? "localhost";
-      const pieceUrl = `https://${domain}/campaigns/${piece.campaignId}/pieces/${piece.id}`;
-
       await sendReviewNotification({
         to: reviewer.email,
         reviewerName: reviewer.firstName
