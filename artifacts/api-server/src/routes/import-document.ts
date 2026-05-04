@@ -22,7 +22,7 @@ function parseDocumentText(text: string): ParsedPiece[] {
   const lines = text.split("\n").map((l) => l.trim());
 
   // Match section headers:
-  //   "Post 1: Title"    "Video 2. Title"    "Reel 3 — Title"
+  //   "Post 1: Title"     "Video 2. Title"     "Reel 3 — Title"
   //   "CAROUSEL 1  Title" (space after number, no colon)
   const sectionPattern =
     /^(?:Post|Video|Reel|Image|Photo|Story|Content|Email|Newsletter|Blog|Chapter|Section|Article|Part|Tweet|Hook|Tip|Step|Lesson|Carousel)\s+\d+[\s:.–\-]/i;
@@ -41,8 +41,8 @@ function parseDocumentText(text: string): ParsedPiece[] {
   if (current) sections.push(current);
   if (sections.length === 0) return [];
 
-  // Lines that are purely production/meta — always skip
-  const metaPatterns: RegExp[] = [
+  // ── Single-line meta: always skip the matched line ───────────────────────
+  const singleMetaPatterns: RegExp[] = [
     /^Character count/i,
     /^Word count/i,
     /^Char count/i,
@@ -62,70 +62,96 @@ function parseDocumentText(text: string): ParsedPiece[] {
     /^Note:/i,
     /^Tip:/i,
     /^Reminder:/i,
-    /^Target Audience/i,
-    /^Slide Header Color/i,
-    /^Slides \(/i,
-    /^\[.+\]$/,         // [designer / director notes in brackets]
+    /^Slides \(/i,         // "Slides (6 total — 1080×1080px each):"
+    /^\[.+\]$/,            // [designer / director notes]
     /^Production Direction/i,
-    /^ON SCREEN/i,      // videographer instruction lines
+    /^ON SCREEN/i,         // videographer instructions
     /^COPY\s*[↓:]/i,
-    /^Post all \d/i,    // "Post all 4 tweets as a thread…"
+    /^Post all \d/i,       // "Post all 4 tweets as a thread…"
     /^📌 POSTING TIP/i,
-    /^\d+\s*\/\s*\d+$/, // "1/6" slide-number lines
-    /^\/\d+/,           // "/6" second-half of split slide numbers
+    /^\d+\s*\/\s*\d+$/,   // "1/6" slide-number on one line
+    /^\/\d+/,              // "/6" second half of split slide numbers
+    /^\d{1,2}$/,           // standalone "1", "2" … "12" — slide indices
+    /^#[0-9A-Fa-f]{3,7}$/, // standalone hex colours like "#1E3A5F"
   ];
 
-  // For video formats (no explicit copy label): strip these label prefixes but
-  // keep whatever content follows on the same line. Content on the NEXT line is
-  // collected naturally.
+  // ── Block-meta: skip the label AND all content until the block drains ────
+  // Pattern fires → blockSkip=true; next non-empty content line is skipped;
+  // the following empty line clears blockSkip.
+  const blockMetaPatterns: RegExp[] = [
+    /^Target Audience/i,       // Facebook: audience descriptor that follows
+    /^Slide Header Color/i,    // Facebook: hex colour value that follows
+  ];
+
+  // ── Label prefixes to strip (keep inline content / next lines naturally) ─
   const stripLabelPatterns: RegExp[] = [
-    /^🎬\s*HOOK\s*:\s*/i,        // Instagram "🎬 HOOK: text"
-    /^📝\s*CAPTION\s*:\s*/i,     // Instagram "📝 CAPTION: text"
-    /^📱\s*CAPTION\s*:\s*/i,     // TikTok   "📱 CAPTION: text"
-    /^Script(?:\s+Beats)?\s*:\s*/i, // "Script:" / "Script Beats:" — label only
-    /^Hook\s*\([^)]*\)\s*:\s*/i,    // "Hook (First 2 seconds…):" — label only
-    /^CTA\s*\([^)]*\)\s*:\s*/i,     // "CTA (End Screen):" / "CTA (End of Video):" — label only
+    /^🎬\s*HOOK\s*:\s*/i,               // Instagram "🎬 HOOK: text"
+    /^📝\s*CAPTION\s*:\s*/i,            // Instagram "📝 CAPTION: text"
+    /^📱\s*CAPTION\s*:\s*/i,            // TikTok   "📱 CAPTION: text"
+    /^Script(?:\s+Beats)?\s*:\s*/i,     // "Script:" / "Script Beats:"
+    /^Hook\s*\([^)]*\)\s*:\s*/i,        // "Hook (First 2 seconds…):"
+    /^CTA\s*\([^)]*\)\s*:\s*/i,         // "CTA (End Screen):" / "CTA (End of Video):"
+    /^Post Caption(?:\s*\([^)]*\))?\s*:\s*/i, // Facebook "Post Caption (paste…):"
   ];
 
-  // Copy labels used by Twitter, LinkedIn, Facebook.
-  // When present, we only collect body content AFTER this label.
+  // ── Copy labels: only collect body content AFTER these (text formats) ────
+  // Facebook's "Post Caption" is intentionally NOT here — it goes via
+  // stripLabelPatterns so slide content before it is also collected.
   const copyLabelPattern =
-    /^(?:Tweet Copy|Post Copy|Post Caption(?:\s*\([^)]*\))?|Body Copy|Body|Copy|Text|Voiceover|Narration|Content)\s*:/i;
+    /^(?:Tweet Copy|Post Copy|Body Copy|Body|Copy|Text|Voiceover|Narration)\s*:/i;
 
   return sections.map((section) => {
-    // Does this section have an explicit copy-label? (text-first formats)
     const hasCopyLabel = section.lines.some((l) => copyLabelPattern.test(l));
 
     let hashtagLine = "";
     const bodyLines: string[] = [];
+    let inCopy = !hasCopyLabel; // text formats start closed; video/carousel open
 
-    // Text-first (Twitter / LinkedIn / Facebook): collect only after the label.
-    // Video / full-section (Reels / TikTok): collect everything that isn't meta.
-    let inCopy = !hasCopyLabel;
+    // Block-skip state: skip the label AND the content block that follows it.
+    // The block ends after we've consumed one non-empty content line then an empty.
+    let blockSkipActive = false;
+    let blockSkipContentSeen = false;
 
     for (const line of section.lines) {
+      // ── Empty line handling ──────────────────────────────────────────────
       if (!line) {
-        if (bodyLines.length && bodyLines[bodyLines.length - 1] !== "") bodyLines.push("");
-        continue;
-      }
-
-      // Always skip pure meta lines
-      if (metaPatterns.some((p) => p.test(line))) continue;
-
-      // Hashtag lines — extract and handle
-      if (/^Hashtags?\s*:/i.test(line)) {
-        const tags = line.replace(/^Hashtags?\s*:\s*/i, "").trim();
-        if (hasCopyLabel) {
-          // For text formats: collect separately and append at the end
-          hashtagLine = tags;
-        } else {
-          // For video formats: inline as part of the body
-          if (tags) bodyLines.push(tags);
+        if (blockSkipActive) {
+          if (blockSkipContentSeen) {
+            // Content consumed → end block on this empty line
+            blockSkipActive = false;
+            blockSkipContentSeen = false;
+          }
+          // Always skip empty lines while inside a block-skip
+          continue;
+        }
+        // Normal empty: add at most one blank separator
+        if (bodyLines.length && bodyLines[bodyLines.length - 1] !== "") {
+          bodyLines.push("");
         }
         continue;
       }
 
-      // Copy label (text formats only)
+      // ── Block-meta: skip label AND subsequent content block ──────────────
+      if (blockMetaPatterns.some((p) => p.test(line))) {
+        blockSkipActive = true;
+        blockSkipContentSeen = false;
+        continue;
+      }
+      if (blockSkipActive) {
+        blockSkipContentSeen = true;
+        continue; // skip block content
+      }
+
+      // ── Single-line meta: skip just this line ───────────────────────────
+      if (singleMetaPatterns.some((p) => p.test(line))) continue;
+
+      // ── Hashtag lines ────────────────────────────────────────────────────
+      if (/^Hashtags?\s*:/i.test(line)) {
+        hashtagLine = line.replace(/^Hashtags?\s*:\s*/i, "").trim();
+        continue;
+      }
+
+      // ── Copy label (text formats: Twitter / LinkedIn) ────────────────────
       if (copyLabelPattern.test(line)) {
         const inline = line.replace(copyLabelPattern, "").trim();
         if (inline) bodyLines.push(inline);
@@ -135,13 +161,12 @@ function parseDocumentText(text: string): ParsedPiece[] {
 
       if (!inCopy) continue;
 
-      // Strip known label prefixes from video-format lines, keep inline content
+      // ── Strip-label prefixes (video / carousel formats) ──────────────────
       let strippedByLabel = false;
       for (const pattern of stripLabelPatterns) {
         if (pattern.test(line)) {
           const content = line.replace(pattern, "").trim();
           if (content) bodyLines.push(content);
-          // No content inline (e.g. "Script Beats:") → next lines collected normally
           strippedByLabel = true;
           break;
         }
@@ -196,8 +221,7 @@ router.post(
         });
       }
 
-      // Sequential inserts so DB IDs — and therefore display order — match
-      // the document order exactly.
+      // Sequential inserts preserve document order in DB IDs
       const created: ContentPiece[] = [];
       for (const piece of parsed) {
         const [row] = await db
