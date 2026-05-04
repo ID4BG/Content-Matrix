@@ -3,9 +3,10 @@ import { format } from "date-fns";
 import {
   ArrowLeft, Plus, Loader2, Calendar, MessageSquare, CheckCircle2,
   PlayCircle, ImageIcon, Clock, Send, X, Crown, Briefcase, XCircle,
+  FileUp, FileText, CheckCheck,
 } from "lucide-react";
 import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useRef } from "react";
 
 import {
   useListContentPieces, getListContentPiecesQueryKey,
@@ -83,6 +84,11 @@ function PieceThumbnail({ piece }: { piece: ContentPiece }) {
   );
 }
 
+interface ImportedPiece {
+  title: string;
+  bodyText: string;
+}
+
 export default function CampaignChannel() {
   const [, params] = useRoute("/campaigns/:id/channels/:channel");
   const campaignId = params?.id ? parseInt(params.id, 10) : 0;
@@ -137,18 +143,27 @@ export default function CampaignChannel() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey }),
   });
 
+  // ── Add single piece ──────────────────────────────────────────
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newCaption, setNewCaption] = useState("");
   const [newDate, setNewDate] = useState("");
   const [newMediaUrl, setNewMediaUrl] = useState("");
 
+  // ── Review ────────────────────────────────────────────────────
   const [isReviewOpen, setIsReviewOpen] = useState(false);
   const [reviewPieceId, setReviewPieceId] = useState<number | null>(null);
   const [reviewNote, setReviewNote] = useState("");
   const [reviewerMemberId, setReviewerMemberId] = useState<string>("");
 
   const reviewableMembers = members?.filter(m => m.role === "owner" || m.role === "marketer") ?? [];
+
+  // ── Document import ───────────────────────────────────────────
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importedPieces, setImportedPieces] = useState<ImportedPiece[]>([]);
+  const [isImportPreviewOpen, setIsImportPreviewOpen] = useState(false);
+  const [isCreatingBulk, setIsCreatingBulk] = useState(false);
 
   const approvedCount = pieces.filter(p => p.status === "approved").length;
   const allApproved = pieces.length > 0 && approvedCount === pieces.length;
@@ -225,6 +240,70 @@ export default function CampaignChannel() {
     });
   };
 
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+
+    setIsImporting(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      form.append("campaignId", String(campaignId));
+      form.append("channel", channel);
+
+      const res = await fetch("/api/content-pieces/import-document", {
+        method: "POST",
+        body: form,
+      });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to parse document");
+      }
+
+      const data = await res.json();
+      queryClient.invalidateQueries({ queryKey });
+      toast({
+        title: `Imported ${data.count} piece${data.count !== 1 ? "s" : ""}`,
+        description: "Content pieces created from your document.",
+      });
+    } catch (err: any) {
+      toast({ title: "Import failed", description: err.message, variant: "destructive" });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const handleImportConfirm = async () => {
+    setIsCreatingBulk(true);
+    try {
+      await Promise.all(
+        importedPieces.map(piece =>
+          createPiece.mutateAsync({
+            data: {
+              campaignId,
+              channel: channel as CreateContentPieceBodyChannel,
+              title: piece.title,
+              bodyText: piece.bodyText || undefined,
+            },
+          })
+        )
+      );
+      queryClient.invalidateQueries({ queryKey });
+      setIsImportPreviewOpen(false);
+      setImportedPieces([]);
+      toast({
+        title: `${importedPieces.length} pieces imported`,
+        description: "All content pieces have been created.",
+      });
+    } catch {
+      toast({ title: "Some pieces failed to create", variant: "destructive" });
+    } finally {
+      setIsCreatingBulk(false);
+    }
+  };
+
   return (
     <div className="space-y-8 max-w-4xl">
       <Link href={`/campaigns/${campaignId}`} className="inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors group">
@@ -254,10 +333,30 @@ export default function CampaignChannel() {
             </span>
           )}
         </div>
-        <Button onClick={() => setIsAddOpen(true)} className="bg-black text-white rounded-none gap-1.5 text-xs font-semibold uppercase tracking-wider">
-          <Plus className="w-3.5 h-3.5" />
-          Add Piece
-        </Button>
+        <div className="flex items-center gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".docx,.doc"
+            className="hidden"
+            onChange={handleFileChange}
+          />
+          <Button
+            variant="outline"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isImporting}
+            className="rounded-none gap-1.5 text-xs font-semibold uppercase tracking-wider border-border"
+          >
+            {isImporting
+              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              : <FileUp className="w-3.5 h-3.5" />}
+            {isImporting ? "Importing…" : "Import Doc"}
+          </Button>
+          <Button onClick={() => setIsAddOpen(true)} className="bg-black text-white rounded-none gap-1.5 text-xs font-semibold uppercase tracking-wider">
+            <Plus className="w-3.5 h-3.5" />
+            Add Piece
+          </Button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -266,11 +365,26 @@ export default function CampaignChannel() {
         </div>
       ) : pieces.length === 0 ? (
         <div className="text-center py-20 border border-dashed border-border/60">
-          <p className="text-muted-foreground mb-4">No content pieces yet for this channel.</p>
-          <Button onClick={() => setIsAddOpen(true)} className="bg-black text-white rounded-none gap-2">
-            <Plus className="w-4 h-4" />
-            Add First Piece
-          </Button>
+          <FileText className="w-10 h-10 text-muted-foreground/30 mx-auto mb-4" />
+          <p className="text-muted-foreground mb-2 font-medium">No content pieces yet</p>
+          <p className="text-xs text-muted-foreground/60 mb-6 max-w-xs mx-auto">
+            Add pieces one by one, or upload a Word document to auto-split posts by title.
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            <Button
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isImporting}
+              className="rounded-none gap-2 border-border"
+            >
+              <FileUp className="w-4 h-4" />
+              Import from Doc
+            </Button>
+            <Button onClick={() => setIsAddOpen(true)} className="bg-black text-white rounded-none gap-2">
+              <Plus className="w-4 h-4" />
+              Add First Piece
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="space-y-2">
@@ -437,6 +551,43 @@ export default function CampaignChannel() {
             <Button onClick={handleSubmitForReview} disabled={submitForReview.isPending} className="bg-black text-white rounded-none gap-1.5">
               {submitForReview.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
               Submit for Review
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Preview Dialog */}
+      <Dialog open={isImportPreviewOpen} onOpenChange={open => { if (!isCreatingBulk) setIsImportPreviewOpen(open); }}>
+        <DialogContent className="rounded-none sm:rounded-none max-w-2xl max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileUp className="w-4 h-4" />
+              Import {importedPieces.length} Piece{importedPieces.length !== 1 ? "s" : ""} from Document
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground -mt-1 mb-2">
+            Review the pieces extracted from your document. Dates can be set individually after import.
+          </p>
+          <div className="overflow-y-auto flex-1 space-y-2 pr-1">
+            {importedPieces.map((piece, idx) => (
+              <div key={idx} className="border border-border p-3 space-y-1">
+                <p className="text-xs font-bold leading-snug">{piece.title}</p>
+                {piece.bodyText && (
+                  <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed whitespace-pre-line">{piece.bodyText}</p>
+                )}
+              </div>
+            ))}
+          </div>
+          <DialogFooter className="pt-4 border-t border-border/40 mt-2">
+            <Button variant="ghost" onClick={() => setIsImportPreviewOpen(false)} disabled={isCreatingBulk}>Cancel</Button>
+            <Button
+              onClick={handleImportConfirm}
+              disabled={isCreatingBulk}
+              className="bg-black text-white rounded-none gap-1.5"
+            >
+              {isCreatingBulk
+                ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating…</>
+                : <><CheckCheck className="w-4 h-4" /> Create {importedPieces.length} Piece{importedPieces.length !== 1 ? "s" : ""}</>}
             </Button>
           </DialogFooter>
         </DialogContent>
