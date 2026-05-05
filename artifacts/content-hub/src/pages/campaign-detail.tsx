@@ -31,7 +31,6 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription,
 } from "@/components/ui/dialog";
 import { useState, useEffect, useRef } from "react";
-import { useUser } from "@clerk/react";
 
 const ALL_CHANNELS: ContentPieceChannel[] = [
   "source_article", "instagram_reel", "tiktok_post", "x_post", "linkedin_post", "youtube_long",
@@ -119,8 +118,6 @@ export default function CampaignDetail() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { user } = useUser();
-
   const { data: campaign, isLoading: isCampaignLoading } = useGetCampaign(id, {
     query: { enabled: !!id, queryKey: getGetCampaignQueryKey(id) },
   });
@@ -136,7 +133,7 @@ export default function CampaignDetail() {
       if (!res.ok) return null;
       return res.json();
     },
-    enabled: !!campaign?.folderId && campaign?.userId !== user?.id,
+    enabled: !!campaign?.folderId && !(campaign as any)?.isOwner,
   });
   const { data: members, isLoading: isMembersLoading } = useCampaignMembers(id);
   const inviteMember = useInviteMember(id);
@@ -352,7 +349,7 @@ export default function CampaignDetail() {
     );
   }
 
-  const isOwner = campaign.userId === user?.id;
+  const isOwner = (campaign as any).isOwner === true;
 
   const activeChannels = campaign.channels || [];
   const folder = folders?.find(f => f.id === campaign.folderId);

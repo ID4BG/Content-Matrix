@@ -26,8 +26,8 @@ import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-function withCount(campaign: typeof campaignsTable.$inferSelect, count: number) {
-  return { ...campaign, contentPieceCount: count };
+function withCount(campaign: typeof campaignsTable.$inferSelect, count: number, isOwner = true) {
+  return { ...campaign, contentPieceCount: count, isOwner };
 }
 
 async function getPieceCount(campaignId: number): Promise<number> {
@@ -83,7 +83,7 @@ router.get("/campaigns", requireAuth, async (req, res) => {
     .groupBy(contentPiecesTable.campaignId);
 
   const countMap = new Map(counts.map((c) => [c.campaignId, c.count]));
-  res.json(campaigns.map((c) => withCount(c, countMap.get(c.id) ?? 0)));
+  res.json(campaigns.map((c) => withCount(c, countMap.get(c.id) ?? 0, c.userId === userId)));
 });
 
 router.post("/campaigns", requireAuth, async (req, res) => {
@@ -116,14 +116,15 @@ router.get("/campaigns/:id", requireAuth, async (req, res) => {
 
   if (!campaign) return res.status(404).json({ error: "Campaign not found" });
 
-  if (campaign.userId !== userId) {
+  const isOwner = campaign.userId === userId;
+  if (!isOwner) {
     const memberIds = await getMemberCampaignIds(userId);
     if (!memberIds.includes(id)) {
       return res.status(403).json({ error: "Access denied" });
     }
   }
 
-  res.json(withCount(campaign, await getPieceCount(id)));
+  res.json(withCount(campaign, await getPieceCount(id), isOwner));
 });
 
 router.patch("/campaigns/:id", requireAuth, async (req, res) => {
@@ -221,7 +222,7 @@ router.get("/shared/campaign/:token", async (req, res) => {
     .orderBy(contentPiecesTable.channel);
 
   const count = await getPieceCount(campaign.id);
-  res.json({ campaign: withCount(campaign, count), pieces });
+  res.json({ campaign: withCount(campaign, count, false), pieces });
 });
 
 router.patch("/campaigns/:id/channels", requireAuth, async (req, res) => {
