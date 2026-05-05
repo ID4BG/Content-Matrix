@@ -1,6 +1,7 @@
 import express, { type Express } from "express";
 import cors from "cors";
-const pinoHttp = require("pino-http");
+import pinoHttp from "pino-http";
+import type { IncomingMessage, ServerResponse } from "http";
 import { clerkMiddleware } from "@clerk/express";
 import { publishableKeyFromHost } from "@clerk/shared/keys";
 import {
@@ -17,14 +18,14 @@ app.use(
   pinoHttp({
     logger,
     serializers: {
-      req(req: any) {
+      req(req: IncomingMessage & { id?: string }) {
         return {
           id: req.id,
           method: req.method,
           url: req.url?.split("?")[0],
         };
       },
-      res(res: any) {
+      res(res: ServerResponse) {
         return {
           statusCode: res.statusCode,
         };
