@@ -21,11 +21,11 @@ export default function Dashboard() {
       </div>
 
       {isLoadingSummary ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-32 w-full" />)}
         </div>
       ) : summary ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Campaigns</CardTitle>

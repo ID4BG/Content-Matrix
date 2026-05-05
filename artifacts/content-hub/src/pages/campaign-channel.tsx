@@ -197,7 +197,7 @@ function SortablePieceRow({ piece, campaignId, onReview, onDelete, onDisapprove,
         {canDelete && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button size="sm" variant="ghost" className="rounded-none h-8 text-muted-foreground hover:text-destructive px-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button size="sm" variant="ghost" className="rounded-none h-8 text-muted-foreground hover:text-destructive px-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                 <X className="w-3.5 h-3.5" />
               </Button>
             </AlertDialogTrigger>
@@ -551,29 +551,29 @@ export default function CampaignChannel() {
         Back to {campaign?.title ?? "Campaign"}
       </Link>
 
-      <div className="flex items-center justify-between gap-4 pb-6 border-b border-border/40">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 border border-border flex items-center justify-center">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 pb-6 border-b border-border/40">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <div className="w-10 h-10 border border-border flex items-center justify-center shrink-0">
             <ChannelIcon channel={channel as any} className="w-5 h-5" />
           </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">{getChannelName(channel as any)}</h1>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">{getChannelName(channel as any)}</h1>
             <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground mt-0.5">
               {pieces.length} {pieces.length === 1 ? "piece" : "pieces"}
               {pieces.length > 0 && ` · ${approvedCount}/${pieces.length} approved`}
             </p>
           </div>
           {pieces.length > 0 && (
-            <span className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 border ${
+            <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 border shrink-0 ${
               allApproved
                 ? "text-emerald-700 border-emerald-200 bg-emerald-50"
                 : "text-amber-700 border-amber-200 bg-amber-50"
             }`}>
-              {allApproved ? "All Approved" : "Awaiting Approval"}
+              {allApproved ? "✓ All OK" : "Pending"}
             </span>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {isOwner && (
             <>
               <input ref={fileInputRef} type="file" accept=".docx,.doc" className="hidden" onChange={handleFileChange} />

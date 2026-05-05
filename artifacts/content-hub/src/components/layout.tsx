@@ -3,7 +3,7 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, PlusCircle, FolderKanban, Settings, FolderOpen, User,
   Bell, X, CheckCircle2, MessageSquare, Upload, CheckCircle, FolderPlus,
-  Sun, Moon, Menu,
+  Sun, Moon,
 } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 import { useUser } from "@clerk/react";
@@ -75,7 +75,7 @@ function NotificationPanel({ onClose, onOpen }: { onClose: () => void; onOpen: (
   return (
     <div
       ref={panelRef}
-      className="fixed top-0 left-0 md:left-64 bottom-0 z-50 w-80 bg-background border-r border-border shadow-xl flex flex-col"
+      className="fixed top-0 left-0 md:left-64 bottom-0 z-50 w-full md:w-80 bg-background border-r border-border shadow-xl flex flex-col"
       style={{ maxHeight: "100dvh" }}
     >
       <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-background">
@@ -167,7 +167,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { isDark, toggleTheme } = useTheme();
   const { toast } = useToast();
   const [notifOpen, setNotifOpen] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // ── Unread tracking ──────────────────────────────────────────────────────
   const [lastSeenAt, setLastSeenAt] = useState<Date>(() => {
@@ -229,27 +228,15 @@ export function Layout({ children }: { children: React.ReactNode }) {
     { href: "/settings",   label: "Settings",   icon: Settings },
   ];
 
-  const closeMobileMenu = () => setMobileMenuOpen(false);
-
-  const handleOpenNotif = () => {
-    setNotifOpen(true);
-    closeMobileMenu();
-  };
+  const isActive = (href: string) =>
+    location === href || (href !== "/" && location.startsWith(href));
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div className="min-h-[100dvh] bg-background">
 
       {/* ── Mobile top bar ── */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-30 h-14 bg-sidebar border-b border-border flex items-center px-4 gap-3">
-        <button
-          onClick={() => setMobileMenuOpen(true)}
-          className="p-1.5 text-foreground hover:bg-secondary transition-colors"
-          aria-label="Open menu"
-        >
-          <Menu className="w-5 h-5" />
-        </button>
-
+      <header className="md:hidden fixed top-0 left-0 right-0 z-30 h-12 bg-sidebar border-b border-border flex items-center px-3 gap-2">
         <Link href="/dashboard" className="flex-1 flex items-center h-full py-2 outline-none">
           <img
             src={isDark ? "/logo-full.png" : "/logo-light.png"}
@@ -267,7 +254,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </button>
 
         <button
-          onClick={handleOpenNotif}
+          onClick={() => setNotifOpen(true)}
           className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
           aria-label="Activity feed"
         >
@@ -280,19 +267,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </button>
       </header>
 
-      {/* ── Mobile drawer overlay ── */}
-      {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 md:hidden"
-          onClick={closeMobileMenu}
-        />
-      )}
-
       {/* ── Notification panel ── */}
       {notifOpen && (
         <>
           <div
-            className="fixed inset-0 z-40 bg-black/10 md:hidden"
+            className="fixed inset-0 z-40 bg-black/20"
             onClick={() => setNotifOpen(false)}
           />
           <NotificationPanel
@@ -304,33 +283,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
       <div className="flex min-h-[100dvh]">
 
-        {/* ── Sidebar ── */}
-        <aside
-          className={`
-            fixed md:sticky top-0 left-0 z-50 w-72 md:w-64
-            bg-sidebar border-r border-border
-            flex flex-col h-[100dvh]
-            transition-transform duration-300 ease-in-out
-            md:translate-x-0 md:transition-none
-            ${mobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
-          `}
-        >
+        {/* ── Sidebar (desktop only) ── */}
+        <aside className="hidden md:flex md:sticky top-0 left-0 z-50 w-64 bg-sidebar border-r border-border flex-col h-[100dvh]">
           {/* Logo row */}
           <div className="overflow-hidden border-b border-border/40 flex items-center" style={{ height: '72px' }}>
-            <Link href="/dashboard" onClick={closeMobileMenu} className="flex-1 block h-full outline-none">
+            <Link href="/dashboard" className="flex-1 block h-full outline-none">
               <img
                 src={isDark ? "/logo-full.png" : "/logo-light.png"}
                 alt="Content Matrix"
                 style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center center' }}
               />
             </Link>
-            <button
-              onClick={closeMobileMenu}
-              className="md:hidden shrink-0 p-3 mr-1 text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
-              aria-label="Close menu"
-            >
-              <X className="w-5 h-5" />
-            </button>
           </div>
 
           {/* Nav */}
@@ -340,12 +303,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </div>
             {navItems.map((item) => {
               const Icon = item.icon;
-              const active = location === item.href || (item.href !== "/" && location.startsWith(item.href));
+              const active = isActive(item.href);
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  onClick={closeMobileMenu}
                   className={`flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors ${
                     active
                       ? "bg-secondary text-secondary-foreground border-l-2 border-foreground"
@@ -364,7 +326,6 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <div className="flex gap-2">
               <Link
                 href="/campaigns/new"
-                onClick={closeMobileMenu}
                 className="flex-1 flex items-center justify-center gap-2 bg-foreground text-background hover:opacity-80 px-3 py-2.5 text-xs font-semibold uppercase tracking-wider transition-colors"
               >
                 <PlusCircle className="w-3.5 h-3.5" />
@@ -378,7 +339,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
                 {isDark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </button>
               <button
-                onClick={handleOpenNotif}
+                onClick={() => setNotifOpen(true)}
                 className={`relative flex items-center justify-center w-10 h-10 border transition-colors ${
                   notifOpen
                     ? "bg-foreground text-background border-foreground"
@@ -399,7 +360,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
               Made by <span className="text-muted-foreground/70">Arnela</span>, for Marketers — with love
             </p>
 
-            <Link href="/settings" onClick={closeMobileMenu} className="flex items-center gap-3 group py-1">
+            <Link href="/settings" className="flex items-center gap-3 group py-1">
               <Avatar className="w-8 h-8 border border-border rounded-none">
                 <AvatarImage src={user?.imageUrl} />
                 <AvatarFallback className="bg-secondary text-xs rounded-none"><User className="w-4 h-4" /></AvatarFallback>
@@ -413,13 +374,71 @@ export function Layout({ children }: { children: React.ReactNode }) {
         </aside>
 
         {/* ── Main content ── */}
-        <main className="flex-1 w-full min-w-0 max-w-full pt-14 md:pt-0">
-          <div className="p-6 md:p-12 lg:p-16 max-w-6xl mx-auto w-full">
+        <main className="flex-1 w-full min-w-0 max-w-full pt-12 md:pt-0 pb-16 md:pb-0">
+          <div className="p-4 sm:p-6 md:p-10 lg:p-14 max-w-6xl mx-auto w-full">
             {children}
           </div>
         </main>
 
       </div>
+
+      {/* ── Mobile bottom tab bar ── */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-sidebar border-t border-border flex items-stretch" style={{ height: '56px' }}>
+        {/* Dashboard */}
+        <Link
+          href="/dashboard"
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors ${
+            isActive("/dashboard") ? "text-foreground" : "text-muted-foreground"
+          }`}
+        >
+          <LayoutDashboard className="w-5 h-5" />
+          <span>Home</span>
+        </Link>
+
+        {/* Campaigns */}
+        <Link
+          href="/campaigns"
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors ${
+            isActive("/campaigns") ? "text-foreground" : "text-muted-foreground"
+          }`}
+        >
+          <FolderKanban className="w-5 h-5" />
+          <span>Campaigns</span>
+        </Link>
+
+        {/* New Campaign — center action */}
+        <Link
+          href="/campaigns/new"
+          className="flex-1 flex flex-col items-center justify-center gap-0.5"
+        >
+          <div className="w-10 h-10 bg-foreground text-background flex items-center justify-center">
+            <PlusCircle className="w-5 h-5" />
+          </div>
+        </Link>
+
+        {/* Folders */}
+        <Link
+          href="/folders"
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors ${
+            isActive("/folders") ? "text-foreground" : "text-muted-foreground"
+          }`}
+        >
+          <FolderOpen className="w-5 h-5" />
+          <span>Folders</span>
+        </Link>
+
+        {/* Settings */}
+        <Link
+          href="/settings"
+          className={`flex-1 flex flex-col items-center justify-center gap-0.5 text-[10px] font-semibold transition-colors ${
+            isActive("/settings") ? "text-foreground" : "text-muted-foreground"
+          }`}
+        >
+          <Settings className="w-5 h-5" />
+          <span>Settings</span>
+        </Link>
+      </nav>
+
     </div>
   );
 }

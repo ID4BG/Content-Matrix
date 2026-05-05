@@ -130,12 +130,21 @@ export default function CampaignCalendar() {
       <div className="border border-border bg-card overflow-hidden">
         {/* Weekday headers */}
         <div className="grid grid-cols-7 border-b border-border bg-secondary/20">
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(d => (
+          {[
+            { full: "Mon", short: "M" },
+            { full: "Tue", short: "T" },
+            { full: "Wed", short: "W" },
+            { full: "Thu", short: "T" },
+            { full: "Fri", short: "F" },
+            { full: "Sat", short: "S" },
+            { full: "Sun", short: "S" },
+          ].map(({ full, short }) => (
             <div
-              key={d}
-              className="py-3 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-r last:border-r-0 border-border"
+              key={full}
+              className="py-2 sm:py-3 text-center text-[10px] font-bold uppercase tracking-widest text-muted-foreground border-r last:border-r-0 border-border"
             >
-              {d}
+              <span className="sm:hidden">{short}</span>
+              <span className="hidden sm:inline">{full}</span>
             </div>
           ))}
         </div>
@@ -147,20 +156,20 @@ export default function CampaignCalendar() {
               const dayPieces  = piecesForDay(day);
               const inMonth    = isSameMonth(day, currentMonth);
               const isToday    = isSameDay(day, new Date());
-              const overflow   = dayPieces.length > 3 ? dayPieces.length - 3 : 0;
-              const visible    = dayPieces.slice(0, 3);
+              const overflow   = dayPieces.length > 2 ? dayPieces.length - 2 : 0;
+              const visible    = dayPieces.slice(0, 2);
 
               return (
                 <div
                   key={i}
-                  className={`min-h-[130px] flex flex-col border-r last:border-r-0 border-border ${
+                  className={`min-h-[60px] sm:min-h-[120px] flex flex-col border-r last:border-r-0 border-border ${
                     inMonth ? "bg-card" : "bg-secondary/20"
                   }`}
                 >
                   {/* Day number */}
-                  <div className="px-2 pt-2 pb-1 flex items-center justify-between">
+                  <div className="px-1 sm:px-2 pt-1 sm:pt-2 pb-0.5 sm:pb-1 flex items-center justify-between">
                     <span
-                      className={`text-xs font-bold w-6 h-6 flex items-center justify-center ${
+                      className={`text-[10px] sm:text-xs font-bold w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center ${
                         isToday
                           ? "bg-black text-white"
                           : inMonth
@@ -171,36 +180,46 @@ export default function CampaignCalendar() {
                       {format(day, "d")}
                     </span>
                     {dayPieces.length > 0 && (
-                      <span className="text-[9px] font-bold text-muted-foreground bg-secondary px-1.5 py-0.5">
+                      <span className="text-[8px] sm:text-[9px] font-bold text-muted-foreground bg-secondary px-1 py-0.5">
                         {dayPieces.length}
                       </span>
                     )}
                   </div>
 
-                  {/* Pieces */}
-                  <div className="flex flex-col gap-0.5 px-1 pb-1 flex-1">
-                    {visible.map(piece => (
-                      <Link
-                        key={piece.id}
-                        href={`/campaigns/${campaignId}/pieces/${piece.id}`}
-                        className={`flex items-center gap-1 px-1.5 py-1 border text-[10px] font-semibold truncate transition-colors ${
-                          STATUS_BG[piece.status as ContentPieceStatus] ?? "bg-card hover:bg-secondary/50"
-                        } ${STATUS_RING[piece.status as ContentPieceStatus] ?? "border-border"}`}
-                      >
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                            STATUS_DOT[piece.status as ContentPieceStatus] ?? "bg-muted-foreground/40"
-                          }`}
-                        />
-                        <ChannelIcon channel={piece.channel} className="w-2.5 h-2.5 shrink-0" />
-                        <span className="truncate">{piece.title || getChannelName(piece.channel)}</span>
-                      </Link>
-                    ))}
-                    {overflow > 0 && (
-                      <span className="text-[9px] font-bold text-muted-foreground px-1.5 mt-0.5">
-                        +{overflow} more
-                      </span>
-                    )}
+                  {/* Pieces — dots only on mobile, labels on desktop */}
+                  <div className="flex flex-col gap-0.5 px-0.5 sm:px-1 pb-1 flex-1">
+                    {/* Mobile: dots */}
+                    <div className="sm:hidden flex flex-wrap gap-0.5 px-0.5 pt-0.5">
+                      {dayPieces.slice(0, 4).map(piece => (
+                        <Link key={piece.id} href={`/campaigns/${campaignId}/pieces/${piece.id}`}>
+                          <span className={`block w-2 h-2 rounded-full ${STATUS_DOT[piece.status as ContentPieceStatus] ?? "bg-muted-foreground/40"}`} />
+                        </Link>
+                      ))}
+                      {dayPieces.length > 4 && (
+                        <span className="text-[8px] text-muted-foreground font-bold">+{dayPieces.length - 4}</span>
+                      )}
+                    </div>
+                    {/* Desktop: labeled links */}
+                    <div className="hidden sm:flex flex-col gap-0.5">
+                      {visible.map(piece => (
+                        <Link
+                          key={piece.id}
+                          href={`/campaigns/${campaignId}/pieces/${piece.id}`}
+                          className={`flex items-center gap-1 px-1.5 py-1 border text-[10px] font-semibold truncate transition-colors ${
+                            STATUS_BG[piece.status as ContentPieceStatus] ?? "bg-card hover:bg-secondary/50"
+                          } ${STATUS_RING[piece.status as ContentPieceStatus] ?? "border-border"}`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${STATUS_DOT[piece.status as ContentPieceStatus] ?? "bg-muted-foreground/40"}`} />
+                          <ChannelIcon channel={piece.channel} className="w-2.5 h-2.5 shrink-0" />
+                          <span className="truncate">{piece.title || getChannelName(piece.channel)}</span>
+                        </Link>
+                      ))}
+                      {overflow > 0 && (
+                        <span className="text-[9px] font-bold text-muted-foreground px-1.5 mt-0.5">
+                          +{overflow} more
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

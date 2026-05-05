@@ -438,7 +438,7 @@ export default function CampaignDetail() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap">
             {/* Share button */}
             <Button
               variant="outline"

@@ -77,20 +77,20 @@ export default function FolderList() {
 
   return (
     <div className="space-y-10">
-      <header className="flex items-start justify-between pb-8 border-b border-border/50">
+      <header className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 pb-8 border-b border-border/50">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground mb-2">Organization</p>
           <h1 className="text-4xl font-bold tracking-tight">Folders</h1>
           <p className="text-muted-foreground mt-2">Group campaigns into folders and share them with collaborators.</p>
         </div>
-        <Button onClick={() => setIsCreating(true)} className="bg-black text-white hover:bg-black/80 rounded-none gap-2">
+        <Button onClick={() => setIsCreating(true)} className="bg-black text-white hover:bg-black/80 rounded-none gap-2 self-start">
           <Plus className="w-4 h-4" />
           New Folder
         </Button>
       </header>
 
       {isLoading ? (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {Array(3).fill(0).map((_, i) => <Skeleton key={i} className="h-40" />)}
         </div>
       ) : !folders?.length ? (
@@ -103,7 +103,7 @@ export default function FolderList() {
           </Button>
         </div>
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {folders.map((folder) => (
             <div key={folder.id} className="group border border-border/80 bg-card hover:border-black/30 hover:shadow-sm transition-all duration-200 flex flex-col">
               <Link href={`/folders/${folder.id}`} className="flex-1 p-6 block">
@@ -135,7 +135,7 @@ export default function FolderList() {
                 {(folder as any).isOwner !== false && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive hover:bg-destructive/10">
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </AlertDialogTrigger>
