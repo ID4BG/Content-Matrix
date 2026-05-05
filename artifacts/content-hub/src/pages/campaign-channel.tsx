@@ -120,8 +120,9 @@ function SortablePieceRow({ piece, campaignId, onReview, onDelete, onDisapprove,
     <div
       ref={setNodeRef}
       style={style}
-      className={`group border transition-colors bg-card flex items-start gap-3 p-4 ${isDragging ? "border-black shadow-lg" : "border-border hover:border-black"}`}
+      className={`group border transition-colors bg-card flex items-start gap-2 sm:gap-3 p-3 sm:p-4 ${isDragging ? "border-black shadow-lg" : "border-border hover:border-black"}`}
     >
+      {/* Drag handle */}
       {canCreate ? (
         <button
           {...attributes}
@@ -136,38 +137,95 @@ function SortablePieceRow({ piece, campaignId, onReview, onDelete, onDisapprove,
         <div className="w-4 shrink-0" />
       )}
 
-      <Link href={`/campaigns/${campaignId}/pieces/${piece.id}`}>
+      {/* Thumbnail — hidden on mobile */}
+      <Link href={`/campaigns/${campaignId}/pieces/${piece.id}`} className="hidden sm:block">
         <PieceThumbnail piece={piece} />
       </Link>
 
-      <div className="flex-1 min-w-0 space-y-1">
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        {/* Title + Status badge */}
         <div className="flex items-start justify-between gap-2">
-          <Link href={`/campaigns/${campaignId}/pieces/${piece.id}`} className="hover:underline underline-offset-2">
-            <h3 className="font-bold text-sm leading-tight line-clamp-1">{piece.title}</h3>
+          <Link href={`/campaigns/${campaignId}/pieces/${piece.id}`} className="hover:underline underline-offset-2 min-w-0">
+            <h3 className="font-bold text-sm leading-tight line-clamp-2">{piece.title}</h3>
           </Link>
           <StatusBadge status={piece.status} />
         </div>
 
+        {/* Date — short on mobile, full on desktop */}
         {piece.scheduledDate && (
-          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1">
-            <Calendar className="w-3 h-3" />
-            {format(new Date(piece.scheduledDate), 'EEE, MMM d, yyyy')}
+          <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-1 mt-1">
+            <Calendar className="w-3 h-3 shrink-0" />
+            <span className="sm:hidden">{format(new Date(piece.scheduledDate), 'MMM d, yyyy')}</span>
+            <span className="hidden sm:inline">{format(new Date(piece.scheduledDate), 'EEE, MMM d, yyyy')}</span>
           </p>
         )}
 
+        {/* Body preview — 1 line on mobile, 2 on desktop */}
         {piece.bodyText && (
-          <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{piece.bodyText}</p>
+          <p className="text-xs text-muted-foreground line-clamp-1 sm:line-clamp-2 leading-relaxed mt-1">{piece.bodyText}</p>
         )}
 
-        <div className="flex items-center gap-2 pt-1">
+        {/* Bottom row: comment count + action buttons (on mobile they live here) */}
+        <div className="flex items-center gap-2 mt-2 flex-wrap">
           <span className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1">
             <MessageSquare className="w-3 h-3" />
             {piece.commentCount}
           </span>
+
+          {/* Action buttons inline on mobile */}
+          <div className="flex items-center gap-1.5 sm:hidden ml-auto">
+            {piece.status === "approved" ? (
+              canApprove && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-none gap-1 text-xs h-7 px-2 border-amber-300 text-amber-700 hover:bg-amber-50"
+                  onClick={() => onDisapprove(piece.id)}
+                  disabled={isDisapprovePending}
+                >
+                  <XCircle className="w-3 h-3" />
+                  Undo
+                </Button>
+              )
+            ) : (
+              canCreate && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-none gap-1 text-xs h-7 px-2 border-border"
+                  onClick={() => onReview(piece.id)}
+                >
+                  <Send className="w-3 h-3" />
+                  Review
+                </Button>
+              )
+            )}
+            {canDelete && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button size="sm" variant="ghost" className="rounded-none h-7 w-7 p-0 text-muted-foreground hover:text-destructive">
+                    <X className="w-3.5 h-3.5" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete piece?</AlertDialogTitle>
+                    <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => onDelete(piece.id)} className="bg-destructive text-white">Delete</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
+          </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-1.5 shrink-0">
+      {/* Action buttons — desktop only, to the right */}
+      <div className="hidden sm:flex items-center gap-1.5 shrink-0">
         {piece.status === "approved" ? (
           canApprove && (
             <Button
@@ -197,7 +255,7 @@ function SortablePieceRow({ piece, campaignId, onReview, onDelete, onDisapprove,
         {canDelete && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button size="sm" variant="ghost" className="rounded-none h-8 text-muted-foreground hover:text-destructive px-2 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+              <Button size="sm" variant="ghost" className="rounded-none h-8 text-muted-foreground hover:text-destructive px-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <X className="w-3.5 h-3.5" />
               </Button>
             </AlertDialogTrigger>

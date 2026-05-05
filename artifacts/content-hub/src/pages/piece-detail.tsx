@@ -414,7 +414,7 @@ export default function PieceDetail() {
               type="date"
               value={editDate}
               onChange={(e) => { if (canEdit) handleSaveDate(e.target.value); }}
-              className="rounded-none w-56"
+              className="rounded-none w-full sm:w-56"
               disabled={!canEdit}
             />
           </div>

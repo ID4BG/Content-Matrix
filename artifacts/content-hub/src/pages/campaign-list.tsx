@@ -87,18 +87,18 @@ export default function CampaignList() {
                         </div>
                       )}
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-6 sm:items-center text-sm shrink-0">
-                      <div className="text-right">
+                    <div className="flex flex-row gap-6 items-center text-sm shrink-0 border-t md:border-t-0 pt-3 md:pt-0">
+                      <div>
                         <div className="font-semibold text-2xl tracking-tight">{campaign.channels.length}</div>
                         <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Channels</div>
                       </div>
-                      <div className="hidden sm:block w-px h-10 bg-border/60"></div>
-                      <div className="text-right">
+                      <div className="w-px h-10 bg-border/60"></div>
+                      <div>
                         <div className="font-semibold text-2xl tracking-tight">{campaign.contentPieceCount}</div>
                         <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Pieces</div>
                       </div>
                       <div className="hidden sm:block w-px h-10 bg-border/60"></div>
-                      <div className="text-left sm:text-right">
+                      <div className="hidden sm:block">
                         <div className="font-medium">{format(new Date(campaign.updatedAt), 'MMM d, yyyy')}</div>
                         <div className="text-[10px] uppercase tracking-widest text-muted-foreground font-semibold">Last Updated</div>
                       </div>
