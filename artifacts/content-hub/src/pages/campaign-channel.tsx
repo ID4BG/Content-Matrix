@@ -407,6 +407,7 @@ export default function CampaignChannel() {
         queryClient.invalidateQueries({ queryKey });
         toast({ title: "Piece deleted" });
       },
+      onError: () => toast({ title: "Delete failed", description: "Could not delete the content piece.", variant: "destructive" }),
     });
   };
 

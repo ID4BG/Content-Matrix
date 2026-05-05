@@ -130,10 +130,12 @@ router.delete("/folders/:id", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
   const { id } = DeleteFolderParams.parse(req.params);
 
-  await db
+  const [deleted] = await db
     .delete(foldersTable)
-    .where(and(eq(foldersTable.id, id), eq(foldersTable.userId, userId)));
+    .where(and(eq(foldersTable.id, id), eq(foldersTable.userId, userId)))
+    .returning({ id: foldersTable.id });
 
+  if (!deleted) return res.status(404).json({ error: "Folder not found or you do not have permission to delete it" });
   res.status(204).send();
 });
 

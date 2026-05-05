@@ -70,6 +70,7 @@ export default function FolderList() {
           queryClient.invalidateQueries({ queryKey: getListFoldersQueryKey() });
           toast({ title: "Folder deleted" });
         },
+        onError: () => toast({ title: "Delete failed", description: "You can only delete folders you own.", variant: "destructive" }),
       }
     );
   };

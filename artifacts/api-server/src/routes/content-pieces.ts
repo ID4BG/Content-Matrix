@@ -132,7 +132,11 @@ router.patch("/content-pieces/:id", async (req, res) => {
 
 router.delete("/content-pieces/:id", async (req, res) => {
   const { id } = DeleteContentPieceParams.parse(req.params);
-  await db.delete(contentPiecesTable).where(eq(contentPiecesTable.id, id));
+  const [deleted] = await db
+    .delete(contentPiecesTable)
+    .where(eq(contentPiecesTable.id, id))
+    .returning({ id: contentPiecesTable.id });
+  if (!deleted) return res.status(404).json({ error: "Content piece not found" });
   res.status(204).send();
 });
 

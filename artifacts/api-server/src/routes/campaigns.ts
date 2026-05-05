@@ -144,9 +144,11 @@ router.patch("/campaigns/:id", requireAuth, async (req, res) => {
 router.delete("/campaigns/:id", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
   const { id } = DeleteCampaignParams.parse(req.params);
-  await db
+  const [deleted] = await db
     .delete(campaignsTable)
-    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.userId, userId)));
+    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.userId, userId)))
+    .returning({ id: campaignsTable.id });
+  if (!deleted) return res.status(404).json({ error: "Campaign not found or you do not have permission to delete it" });
   res.status(204).send();
 });
 
