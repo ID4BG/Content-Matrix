@@ -26,8 +26,8 @@ import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
-function withCount(campaign: typeof campaignsTable.$inferSelect, count: number, isOwner = true) {
-  return { ...campaign, contentPieceCount: count, isOwner };
+function withCount(campaign: typeof campaignsTable.$inferSelect, count: number, isOwner = true, currentUserRole?: string) {
+  return { ...campaign, contentPieceCount: count, isOwner, currentUserRole: currentUserRole ?? (isOwner ? "owner" : "team_member") };
 }
 
 async function getPieceCount(campaignId: number): Promise<number> {
@@ -53,6 +53,25 @@ async function getMemberCampaignIds(userId: string): Promise<number[]> {
     return rows.map(r => r.campaignId);
   } catch {
     return [];
+  }
+}
+
+async function getMemberRole(userId: string, campaignId: number): Promise<string | null> {
+  try {
+    const clerkUser = await clerkClient.users.getUser(userId);
+    const email = clerkUser.emailAddresses?.[0]?.emailAddress;
+    if (!email) return null;
+    const [row] = await db
+      .select({ role: campaignMembersTable.role })
+      .from(campaignMembersTable)
+      .where(and(
+        eq(campaignMembersTable.campaignId, campaignId),
+        eq(campaignMembersTable.email, email),
+        eq(campaignMembersTable.accepted, true),
+      ));
+    return row?.role ?? null;
+  } catch {
+    return null;
   }
 }
 
@@ -124,7 +143,9 @@ router.get("/campaigns/:id", requireAuth, async (req, res) => {
     }
   }
 
-  res.json(withCount(campaign, await getPieceCount(id), isOwner));
+  const memberRole = isOwner ? null : await getMemberRole(userId, id);
+  const currentUserRole = isOwner ? "owner" : (memberRole ?? "team_member");
+  res.json(withCount(campaign, await getPieceCount(id), isOwner, currentUserRole));
 });
 
 router.patch("/campaigns/:id", requireAuth, async (req, res) => {

@@ -13,6 +13,7 @@ import { useUser } from "@clerk/react";
 
 import {
   useGetContentPiece, getGetContentPieceQueryKey,
+  useGetCampaign, getGetCampaignQueryKey,
   useUpdateContentPiece, useApproveContentPiece,
   useListComments, getListCommentsQueryKey,
   useCreateComment,
@@ -136,6 +137,14 @@ export default function PieceDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { user } = useUser();
+
+  const { data: campaign } = useGetCampaign(campaignId, {
+    query: { enabled: !!campaignId, queryKey: getGetCampaignQueryKey(campaignId) },
+  });
+  const isOwner = (campaign as any)?.isOwner === true;
+  const currentRole = (campaign as any)?.currentUserRole as "owner" | "marketer" | "team_member" | undefined;
+  const canEdit = isOwner || currentRole === "marketer";
+  const canApprove = isOwner;
 
   const { data: piece, isLoading: isPieceLoading } = useGetContentPiece(pieceId, {
     query: { enabled: !!pieceId, queryKey: getGetContentPieceQueryKey(pieceId) },
@@ -316,8 +325,8 @@ export default function PieceDetail() {
               />
             ) : (
               <div
-                className="aspect-video bg-secondary/10 flex flex-col items-center justify-center gap-4 cursor-pointer hover:bg-secondary/20 transition-colors group"
-                onClick={() => fileInputRef.current?.click()}
+                className={`aspect-video bg-secondary/10 flex flex-col items-center justify-center gap-4 transition-colors group ${canEdit ? "cursor-pointer hover:bg-secondary/20" : "cursor-default"}`}
+                onClick={() => { if (canEdit) fileInputRef.current?.click(); }}
               >
                 <div className="w-14 h-14 border border-border flex items-center justify-center group-hover:border-black transition-colors">
                   <Upload className="w-6 h-6 text-muted-foreground group-hover:text-black transition-colors" />
@@ -332,7 +341,7 @@ export default function PieceDetail() {
             {/* Media URL bar */}
             <div className="border-t border-border bg-secondary/10 p-3 flex items-center gap-2">
               <div className="flex-1">
-                {isEditingMediaUrl ? (
+                {isEditingMediaUrl && canEdit ? (
                   <Input
                     value={mediaUrlInput}
                     onChange={(e) => setMediaUrlInput(e.target.value)}
@@ -344,24 +353,26 @@ export default function PieceDetail() {
                   />
                 ) : (
                   <button
-                    onClick={() => setIsEditingMediaUrl(true)}
-                    className="text-xs text-muted-foreground hover:text-foreground transition-colors text-left w-full truncate"
+                    onClick={() => { if (canEdit) setIsEditingMediaUrl(true); }}
+                    className={`text-xs text-muted-foreground transition-colors text-left w-full truncate ${canEdit ? "hover:text-foreground" : "cursor-default"}`}
                   >
                     {piece.mediaUrl ? (
                       <span className="font-mono">{piece.mediaUrl.startsWith('data:') ? 'Uploaded file (data URL)' : piece.mediaUrl}</span>
                     ) : (
-                      <span className="italic">Click to paste media URL…</span>
+                      <span className="italic">{canEdit ? "Click to paste media URL…" : "No media attached"}</span>
                     )}
                   </button>
                 )}
               </div>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors border border-border/60 hover:border-black px-2 py-1"
-              >
-                <Upload className="w-3 h-3" />
-                Upload
-              </button>
+              {canEdit && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="shrink-0 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground hover:text-foreground transition-colors border border-border/60 hover:border-black px-2 py-1"
+                >
+                  <Upload className="w-3 h-3" />
+                  Upload
+                </button>
+              )}
               {piece.mediaUrl && !piece.mediaUrl.startsWith('data:') && (
                 <a href={piece.mediaUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 text-muted-foreground hover:text-foreground transition-colors">
                   <ExternalLink className="w-3.5 h-3.5" />
@@ -375,7 +386,7 @@ export default function PieceDetail() {
           {/* Title */}
           <div className="space-y-1">
             <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Title</label>
-            {isEditingTitle ? (
+            {isEditingTitle && canEdit ? (
               <Input
                 value={editTitle}
                 onChange={(e) => setEditTitle(e.target.value)}
@@ -386,8 +397,8 @@ export default function PieceDetail() {
               />
             ) : (
               <h1
-                className="text-2xl font-bold tracking-tight cursor-text hover:bg-secondary/20 px-2 py-1 -ml-2 rounded-sm transition-colors group flex items-center gap-2"
-                onClick={() => setIsEditingTitle(true)}
+                className={`text-2xl font-bold tracking-tight px-2 py-1 -ml-2 rounded-sm transition-colors group flex items-center gap-2 ${canEdit ? "cursor-text hover:bg-secondary/20" : ""}`}
+                onClick={() => { if (canEdit) setIsEditingTitle(true); }}
               >
                 {piece.title}
               </h1>
@@ -402,15 +413,16 @@ export default function PieceDetail() {
             <Input
               type="date"
               value={editDate}
-              onChange={(e) => handleSaveDate(e.target.value)}
+              onChange={(e) => { if (canEdit) handleSaveDate(e.target.value); }}
               className="rounded-none w-56"
+              disabled={!canEdit}
             />
           </div>
 
           {/* Caption */}
           <div className="space-y-1">
             <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Caption / Body</label>
-            {isEditingCaption ? (
+            {isEditingCaption && canEdit ? (
               <div className="space-y-2">
                 <Textarea
                   value={editCaption}
@@ -426,10 +438,10 @@ export default function PieceDetail() {
               </div>
             ) : (
               <div
-                className="min-h-[120px] cursor-text hover:bg-secondary/20 px-3 py-3 -ml-3 rounded-sm transition-colors border border-transparent hover:border-border whitespace-pre-wrap text-sm leading-relaxed"
-                onClick={() => setIsEditingCaption(true)}
+                className={`min-h-[120px] px-3 py-3 -ml-3 rounded-sm transition-colors border border-transparent whitespace-pre-wrap text-sm leading-relaxed ${canEdit ? "cursor-text hover:bg-secondary/20 hover:border-border" : ""}`}
+                onClick={() => { if (canEdit) setIsEditingCaption(true); }}
               >
-                {piece.bodyText || <span className="text-muted-foreground italic opacity-60">Click to add caption or body text…</span>}
+                {piece.bodyText || <span className="text-muted-foreground italic opacity-60">{canEdit ? "Click to add caption or body text…" : "No caption added"}</span>}
               </div>
             )}
           </div>
@@ -449,7 +461,7 @@ export default function PieceDetail() {
           <div className="border border-border bg-card p-5 space-y-3">
             <h3 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Actions</h3>
 
-            {piece.status !== 'approved' && (
+            {piece.status !== 'approved' && canApprove && (
               <Button
                 onClick={handleApprove}
                 disabled={approvePiece.isPending}
@@ -459,7 +471,7 @@ export default function PieceDetail() {
                 Approve
               </Button>
             )}
-            {piece.status !== 'in_review' && piece.status !== 'approved' && (
+            {piece.status !== 'in_review' && piece.status !== 'approved' && canEdit && (
               <Button
                 variant="outline"
                 onClick={() => handleStatusUpdate('in_review')}
@@ -469,7 +481,7 @@ export default function PieceDetail() {
                 Submit for Review
               </Button>
             )}
-            {piece.status !== 'needs_revision' && piece.status !== 'approved' && (
+            {piece.status !== 'needs_revision' && piece.status !== 'approved' && canApprove && (
               <Button
                 variant="outline"
                 onClick={() => handleStatusUpdate('needs_revision')}

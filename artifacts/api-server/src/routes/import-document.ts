@@ -9,6 +9,7 @@ const mammoth = require("mammoth") as typeof import("mammoth");
 import { contentPiecesTable, campaignsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import type { ContentPiece } from "@workspace/db";
+import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
@@ -119,9 +120,11 @@ function parseDocumentText(text: string): ParsedPiece[] {
 // Extracts content pieces from a DOCX and also saves the full document HTML.
 router.post(
   "/content-pieces/import-document",
+  requireAuth,
   upload.single("file"),
   async (req, res) => {
     try {
+      const userId = (req as any).userId;
       if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
       const campaignId = parseInt(req.body.campaignId, 10);
@@ -130,6 +133,7 @@ router.post(
 
       const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, campaignId));
       if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      if (campaign.userId !== userId) return res.status(403).json({ error: "Only the campaign owner can import documents" });
 
       // Extract text for section parsing
       const textResult = await mammoth.extractRawText({ buffer: req.file.buffer });
@@ -190,9 +194,11 @@ router.post(
 // Attaches a document to a channel for reference viewing (no piece extraction).
 router.post(
   "/content-pieces/attach-document",
+  requireAuth,
   upload.single("file"),
   async (req, res) => {
     try {
+      const userId = (req as any).userId;
       if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
       const campaignId = parseInt(req.body.campaignId, 10);
@@ -201,6 +207,7 @@ router.post(
 
       const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, campaignId));
       if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+      if (campaign.userId !== userId) return res.status(403).json({ error: "Only the campaign owner can attach documents" });
 
       const htmlResult = await mammoth.convertToHtml({ buffer: req.file.buffer });
       const fileName = req.file.originalname || "document.docx";

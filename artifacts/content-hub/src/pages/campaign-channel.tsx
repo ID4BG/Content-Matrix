@@ -101,9 +101,12 @@ interface SortablePieceRowProps {
   onDelete: (id: number) => void;
   onDisapprove: (id: number) => void;
   isDisapprovePending: boolean;
+  canDelete: boolean;
+  canApprove: boolean;
+  canCreate: boolean;
 }
 
-function SortablePieceRow({ piece, campaignId, onReview, onDelete, onDisapprove, isDisapprovePending }: SortablePieceRowProps) {
+function SortablePieceRow({ piece, campaignId, onReview, onDelete, onDisapprove, isDisapprovePending, canDelete, canApprove, canCreate }: SortablePieceRowProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: piece.id });
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -119,15 +122,19 @@ function SortablePieceRow({ piece, campaignId, onReview, onDelete, onDisapprove,
       style={style}
       className={`group border transition-colors bg-card flex items-start gap-3 p-4 ${isDragging ? "border-black shadow-lg" : "border-border hover:border-black"}`}
     >
-      <button
-        {...attributes}
-        {...listeners}
-        className="flex items-center self-stretch cursor-grab active:cursor-grabbing text-muted-foreground/25 hover:text-muted-foreground/60 transition-colors shrink-0 touch-none pt-0.5"
-        tabIndex={-1}
-        aria-label="Drag to reorder"
-      >
-        <GripVertical className="w-4 h-4" />
-      </button>
+      {canCreate ? (
+        <button
+          {...attributes}
+          {...listeners}
+          className="flex items-center self-stretch cursor-grab active:cursor-grabbing text-muted-foreground/25 hover:text-muted-foreground/60 transition-colors shrink-0 touch-none pt-0.5"
+          tabIndex={-1}
+          aria-label="Drag to reorder"
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
+      ) : (
+        <div className="w-4 shrink-0" />
+      )}
 
       <Link href={`/campaigns/${campaignId}/pieces/${piece.id}`}>
         <PieceThumbnail piece={piece} />
@@ -162,44 +169,50 @@ function SortablePieceRow({ piece, campaignId, onReview, onDelete, onDisapprove,
 
       <div className="flex items-center gap-1.5 shrink-0">
         {piece.status === "approved" ? (
-          <Button
-            size="sm"
-            variant="outline"
-            className="rounded-none gap-1.5 text-xs h-8 border-amber-300 text-amber-700 hover:bg-amber-50"
-            onClick={() => onDisapprove(piece.id)}
-            disabled={isDisapprovePending}
-          >
-            <XCircle className="w-3 h-3" />
-            Disapprove
-          </Button>
-        ) : (
-          <Button
-            size="sm"
-            variant="outline"
-            className="rounded-none gap-1.5 text-xs h-8 border-border"
-            onClick={() => onReview(piece.id)}
-          >
-            <Send className="w-3 h-3" />
-            Review
-          </Button>
-        )}
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <Button size="sm" variant="ghost" className="rounded-none h-8 text-muted-foreground hover:text-destructive px-2 opacity-0 group-hover:opacity-100 transition-opacity">
-              <X className="w-3.5 h-3.5" />
+          canApprove && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-none gap-1.5 text-xs h-8 border-amber-300 text-amber-700 hover:bg-amber-50"
+              onClick={() => onDisapprove(piece.id)}
+              disabled={isDisapprovePending}
+            >
+              <XCircle className="w-3 h-3" />
+              Disapprove
             </Button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete piece?</AlertDialogTitle>
-              <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={() => onDelete(piece.id)} className="bg-destructive text-white">Delete</AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
+          )
+        ) : (
+          canCreate && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="rounded-none gap-1.5 text-xs h-8 border-border"
+              onClick={() => onReview(piece.id)}
+            >
+              <Send className="w-3 h-3" />
+              Review
+            </Button>
+          )
+        )}
+        {canDelete && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button size="sm" variant="ghost" className="rounded-none h-8 text-muted-foreground hover:text-destructive px-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <X className="w-3.5 h-3.5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete piece?</AlertDialogTitle>
+                <AlertDialogDescription>This cannot be undone.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction onClick={() => onDelete(piece.id)} className="bg-destructive text-white">Delete</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </div>
     </div>
   );
@@ -222,6 +235,11 @@ export default function CampaignChannel() {
     query: { enabled: !!campaignId, queryKey: getGetCampaignQueryKey(campaignId) },
   });
   const isOwner = (campaign as any)?.isOwner === true;
+  const currentRole = (campaign as any)?.currentUserRole as "owner" | "marketer" | "team_member" | undefined;
+  const canCreate = isOwner || currentRole === "marketer";
+  const canEdit = isOwner || currentRole === "marketer";
+  const canDelete = isOwner;
+  const canApprove = isOwner;
 
   const { data: allPieces, isLoading } = useListContentPieces(
     { campaignId },
@@ -582,10 +600,12 @@ export default function CampaignChannel() {
               </Button>
             </>
           )}
-          <Button onClick={() => setIsAddOpen(true)} className="bg-black text-white rounded-none gap-1.5 text-xs font-semibold uppercase tracking-wider">
-            <Plus className="w-3.5 h-3.5" />
-            Add Piece
-          </Button>
+          {canCreate && (
+            <Button onClick={() => setIsAddOpen(true)} className="bg-black text-white rounded-none gap-1.5 text-xs font-semibold uppercase tracking-wider">
+              <Plus className="w-3.5 h-3.5" />
+              Add Piece
+            </Button>
+          )}
         </div>
       </div>
 
@@ -645,19 +665,23 @@ export default function CampaignChannel() {
             Add pieces one by one, or upload a Word document to auto-split posts by title.
           </p>
           <div className="flex items-center justify-center gap-3">
-            <Button
-              variant="outline"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={isImporting}
-              className="rounded-none gap-2 border-border"
-            >
-              <FileUp className="w-4 h-4" />
-              Import from Doc
-            </Button>
-            <Button onClick={() => setIsAddOpen(true)} className="bg-black text-white rounded-none gap-2">
-              <Plus className="w-4 h-4" />
-              Add First Piece
-            </Button>
+            {isOwner && (
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isImporting}
+                className="rounded-none gap-2 border-border"
+              >
+                <FileUp className="w-4 h-4" />
+                Import from Doc
+              </Button>
+            )}
+            {canCreate && (
+              <Button onClick={() => setIsAddOpen(true)} className="bg-black text-white rounded-none gap-2">
+                <Plus className="w-4 h-4" />
+                Add First Piece
+              </Button>
+            )}
           </div>
         </div>
       ) : (
@@ -673,6 +697,9 @@ export default function CampaignChannel() {
                   onDelete={handleDeletePiece}
                   onDisapprove={handleDisapprove}
                   isDisapprovePending={disapprovePiece.isPending}
+                  canDelete={canDelete}
+                  canApprove={canApprove}
+                  canCreate={canCreate}
                 />
               ))}
             </div>

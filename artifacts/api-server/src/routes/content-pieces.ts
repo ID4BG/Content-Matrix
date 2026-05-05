@@ -21,8 +21,16 @@ import {
   ListContentPiecesQueryParams,
 } from "@workspace/api-zod";
 import { sendReviewNotification } from "../email";
+import { requireAuth } from "../middlewares/requireAuth";
+import { clerkClient } from "@clerk/express";
 
 const router: IRouter = Router();
+
+const ROLE_PERMISSIONS: Record<string, string[]> = {
+  owner:       ["view", "comment", "create", "edit", "delete", "approve"],
+  marketer:    ["view", "comment", "create", "edit"],
+  team_member: ["view", "comment"],
+};
 
 async function getPieceWithCommentCount(pieceId: number) {
   const [countRow] = await db
@@ -32,7 +40,37 @@ async function getPieceWithCommentCount(pieceId: number) {
   return countRow?.count ?? 0;
 }
 
-router.get("/content-pieces", async (req, res) => {
+async function getUserRoleForCampaign(userId: string, campaignId: number): Promise<string | null> {
+  const [campaign] = await db
+    .select({ userId: campaignsTable.userId })
+    .from(campaignsTable)
+    .where(eq(campaignsTable.id, campaignId));
+  if (!campaign) return null;
+  if (campaign.userId === userId) return "owner";
+  try {
+    const clerkUser = await clerkClient.users.getUser(userId);
+    const email = clerkUser.emailAddresses?.[0]?.emailAddress;
+    if (!email) return null;
+    const [member] = await db
+      .select({ role: campaignMembersTable.role })
+      .from(campaignMembersTable)
+      .where(and(
+        eq(campaignMembersTable.campaignId, campaignId),
+        eq(campaignMembersTable.email, email),
+        eq(campaignMembersTable.accepted, true),
+      ));
+    return member?.role ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function can(role: string | null, permission: string): boolean {
+  if (!role) return false;
+  return (ROLE_PERMISSIONS[role] ?? []).includes(permission);
+}
+
+router.get("/content-pieces", requireAuth, async (req, res) => {
   const params = ListContentPiecesQueryParams.parse(req.query);
 
   const conditions: ReturnType<typeof eq>[] = [];
@@ -49,13 +87,21 @@ router.get("/content-pieces", async (req, res) => {
     .groupBy(commentsTable.contentPieceId);
 
   const countMap = new Map(commentCounts.map((c) => [c.contentPieceId, c.count]));
-
   res.json(pieces.map((p) => ({ ...p, commentCount: countMap.get(p.id) ?? 0 })));
 });
 
-router.post("/content-pieces/reorder", async (req, res) => {
+router.post("/content-pieces/reorder", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
   const { items } = req.body as { items: { id: number; sortOrder: number }[] };
-  if (!Array.isArray(items)) return res.status(400).json({ error: "items must be an array" });
+  if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: "items must be a non-empty array" });
+  const [firstPiece] = await db
+    .select({ campaignId: contentPiecesTable.campaignId })
+    .from(contentPiecesTable)
+    .where(eq(contentPiecesTable.id, items[0].id));
+  if (firstPiece) {
+    const role = await getUserRoleForCampaign(userId, firstPiece.campaignId);
+    if (!can(role, "edit")) return res.status(403).json({ error: "You do not have permission to reorder content" });
+  }
   for (const item of items) {
     await db
       .update(contentPiecesTable)
@@ -65,8 +111,12 @@ router.post("/content-pieces/reorder", async (req, res) => {
   res.json({ ok: true });
 });
 
-router.post("/content-pieces", async (req, res) => {
+router.post("/content-pieces", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
   const body = CreateContentPieceBody.parse(req.body);
+
+  const role = await getUserRoleForCampaign(userId, body.campaignId);
+  if (!can(role, "create")) return res.status(403).json({ error: "You do not have permission to create content" });
 
   const [maxRow] = await db
     .select({ maxOrder: max(contentPiecesTable.sortOrder) })
@@ -97,17 +147,30 @@ router.post("/content-pieces", async (req, res) => {
   res.status(201).json({ ...piece, commentCount: 0 });
 });
 
-router.get("/content-pieces/:id", async (req, res) => {
+router.get("/content-pieces/:id", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
   const { id } = GetContentPieceParams.parse(req.params);
   const [piece] = await db.select().from(contentPiecesTable).where(eq(contentPiecesTable.id, id));
   if (!piece) return res.status(404).json({ error: "Content piece not found" });
+  const role = await getUserRoleForCampaign(userId, piece.campaignId);
+  if (!can(role, "view")) return res.status(403).json({ error: "Access denied" });
   const commentCount = await getPieceWithCommentCount(id);
   res.json({ ...piece, commentCount });
 });
 
-router.patch("/content-pieces/:id", async (req, res) => {
+router.patch("/content-pieces/:id", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
   const { id } = UpdateContentPieceParams.parse(req.params);
   const body = UpdateContentPieceBody.parse(req.body);
+
+  const [piece] = await db
+    .select({ campaignId: contentPiecesTable.campaignId })
+    .from(contentPiecesTable)
+    .where(eq(contentPiecesTable.id, id));
+  if (!piece) return res.status(404).json({ error: "Content piece not found" });
+
+  const role = await getUserRoleForCampaign(userId, piece.campaignId);
+  if (!can(role, "edit")) return res.status(403).json({ error: "You do not have permission to edit content" });
 
   const updateData: any = { updatedAt: new Date() };
   if (body.title !== undefined) updateData.title = body.title;
@@ -130,8 +193,19 @@ router.patch("/content-pieces/:id", async (req, res) => {
   res.json({ ...updated, commentCount });
 });
 
-router.delete("/content-pieces/:id", async (req, res) => {
+router.delete("/content-pieces/:id", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
   const { id } = DeleteContentPieceParams.parse(req.params);
+
+  const [piece] = await db
+    .select({ campaignId: contentPiecesTable.campaignId })
+    .from(contentPiecesTable)
+    .where(eq(contentPiecesTable.id, id));
+  if (!piece) return res.status(404).json({ error: "Content piece not found" });
+
+  const role = await getUserRoleForCampaign(userId, piece.campaignId);
+  if (role !== "owner") return res.status(403).json({ error: "Only the campaign owner can delete content pieces" });
+
   const [deleted] = await db
     .delete(contentPiecesTable)
     .where(eq(contentPiecesTable.id, id))
@@ -140,8 +214,19 @@ router.delete("/content-pieces/:id", async (req, res) => {
   res.status(204).send();
 });
 
-router.post("/content-pieces/:id/approve", async (req, res) => {
+router.post("/content-pieces/:id/approve", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
   const { id } = ApproveContentPieceParams.parse(req.params);
+
+  const [piece] = await db
+    .select({ campaignId: contentPiecesTable.campaignId })
+    .from(contentPiecesTable)
+    .where(eq(contentPiecesTable.id, id));
+  if (!piece) return res.status(404).json({ error: "Content piece not found" });
+
+  const role = await getUserRoleForCampaign(userId, piece.campaignId);
+  if (role !== "owner") return res.status(403).json({ error: "Only the campaign owner can approve content pieces" });
+
   const [updated] = await db
     .update(contentPiecesTable)
     .set({ status: "approved", approvedAt: new Date(), updatedAt: new Date() })
@@ -161,11 +246,16 @@ router.post("/content-pieces/:id/approve", async (req, res) => {
   res.json({ ...updated, commentCount });
 });
 
-router.post("/content-pieces/:id/disapprove", async (req, res) => {
+router.post("/content-pieces/:id/disapprove", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
   const { id } = DisapproveContentPieceParams.parse(req.params);
+
   const [piece] = await db.select().from(contentPiecesTable).where(eq(contentPiecesTable.id, id));
   if (!piece) return res.status(404).json({ error: "Content piece not found" });
   if (piece.status !== "approved") return res.status(400).json({ error: "Piece is not approved" });
+
+  const role = await getUserRoleForCampaign(userId, piece.campaignId);
+  if (role !== "owner") return res.status(403).json({ error: "Only the campaign owner can disapprove content pieces" });
 
   const [updated] = await db
     .update(contentPiecesTable)
@@ -177,12 +267,16 @@ router.post("/content-pieces/:id/disapprove", async (req, res) => {
   res.json({ ...updated, commentCount });
 });
 
-router.post("/content-pieces/:id/submit-review", async (req, res) => {
+router.post("/content-pieces/:id/submit-review", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
   const { id } = SubmitContentPieceForReviewParams.parse(req.params);
   const body = SubmitContentPieceForReviewBody.parse(req.body);
 
   const [piece] = await db.select().from(contentPiecesTable).where(eq(contentPiecesTable.id, id));
   if (!piece) return res.status(404).json({ error: "Content piece not found" });
+
+  const role = await getUserRoleForCampaign(userId, piece.campaignId);
+  if (!can(role, "edit")) return res.status(403).json({ error: "You do not have permission to submit content for review" });
 
   const [updated] = await db
     .update(contentPiecesTable)
