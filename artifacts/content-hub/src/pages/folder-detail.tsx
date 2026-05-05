@@ -13,7 +13,6 @@ import {
   getListCampaignsQueryKey,
 } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
-import { useUser } from "@clerk/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -74,8 +73,6 @@ export default function FolderDetail() {
   const id = params?.id ? parseInt(params.id, 10) : 0;
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { user } = useUser();
-
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState("");
 
@@ -89,8 +86,7 @@ export default function FolderDetail() {
   });
 
   const folder = folders?.find((f) => f.id === id);
-  const isOwner = (folder as any)?.isOwner !== false && (folder as any)?.userId === (user?.id ?? "__none__")
-    || (folder as any)?.isOwner === true;
+  const isOwner = (folder as any)?.isOwner === true;
 
   const { data: campaigns, isLoading: isCampaignsLoading } = useListCampaigns(
     { folderId: id },
@@ -224,7 +220,7 @@ export default function FolderDetail() {
                 <Folder className="w-4 h-4 text-muted-foreground" />
               </div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Folder</p>
-              {!(folder as any).isOwner && (
+              {!isOwner && (
                 <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 border border-border/60 text-muted-foreground">
                   Member
                 </span>
