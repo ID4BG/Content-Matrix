@@ -8,6 +8,7 @@ import commentsRouter from "./comments";
 import dashboardRouter from "./dashboard";
 import foldersRouter from "./folders";
 import invitesRouter from "./invites";
+import adminFixRouter from "./admin-fix";
 
 const router: IRouter = Router();
 
@@ -20,5 +21,6 @@ router.use(commentsRouter);
 router.use(dashboardRouter);
 router.use(foldersRouter);
 router.use(invitesRouter);
+router.use(adminFixRouter);
 
 export default router;
