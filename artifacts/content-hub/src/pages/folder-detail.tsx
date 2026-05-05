@@ -1,19 +1,19 @@
 import { useState } from "react";
 import { Link, useRoute } from "wouter";
 import {
-  ArrowLeft, Share2, Copy, Check, Loader2, Folder, ExternalLink,
-  FolderKanban, Users, Mail, Lock, UserPlus, Send,
+  ArrowLeft, Loader2, Folder, FolderKanban, Users, Mail,
+  UserPlus, Send, Trash2, Crown, Briefcase, User,
 } from "lucide-react";
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import {
   useListFolders,
   getListFoldersQueryKey,
   useUpdateFolder,
-  useShareFolderLink,
   useListCampaigns,
   getListCampaignsQueryKey,
 } from "@workspace/api-client-react";
 import { useQuery } from "@tanstack/react-query";
+import { useUser } from "@clerk/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -23,6 +23,10 @@ import { format } from "date-fns";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface CampaignMember {
   id: number;
@@ -38,6 +42,12 @@ interface CampaignMember {
 function memberDisplayName(m: CampaignMember) {
   const name = `${m.firstName} ${m.lastName}`.trim();
   return name || m.email;
+}
+
+function RoleIcon({ role }: { role: string }) {
+  if (role === "owner") return <Crown className="w-3 h-3 text-amber-600 shrink-0" />;
+  if (role === "marketer") return <Briefcase className="w-3 h-3 text-blue-600 shrink-0" />;
+  return <User className="w-3 h-3 text-muted-foreground shrink-0" />;
 }
 
 function useCampaignMembers(campaignIds: number[]) {
@@ -64,12 +74,11 @@ export default function FolderDetail() {
   const id = params?.id ? parseInt(params.id, 10) : 0;
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useUser();
+
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState("");
-  const [copied, setCopied] = useState(false);
-  const [copiedMemberId, setCopiedMemberId] = useState<string | null>(null);
 
-  // Invite form state
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteFirstName, setInviteFirstName] = useState("");
   const [inviteLastName, setInviteLastName] = useState("");
@@ -80,6 +89,8 @@ export default function FolderDetail() {
   });
 
   const folder = folders?.find((f) => f.id === id);
+  const isOwner = (folder as any)?.isOwner !== false && (folder as any)?.userId === (user?.id ?? "__none__")
+    || (folder as any)?.isOwner === true;
 
   const { data: campaigns, isLoading: isCampaignsLoading } = useListCampaigns(
     { folderId: id },
@@ -88,9 +99,9 @@ export default function FolderDetail() {
 
   const campaignIds = campaigns?.map(c => c.id) ?? [];
   const { data: members, refetch: refetchMembers } = useCampaignMembers(campaignIds);
+  const membersQueryKey = ["folder-members", ...campaignIds];
 
   const updateFolder = useUpdateFolder();
-  const shareFolderLink = useShareFolderLink();
 
   const inviteToFolder = useMutation({
     mutationFn: async (data: { email: string; firstName: string; lastName: string; role: string }) => {
@@ -123,6 +134,37 @@ export default function FolderDetail() {
     onError: (err: Error) => toast({ title: "Invite failed", description: err.message, variant: "destructive" }),
   });
 
+  const updateMemberRole = useMutation({
+    mutationFn: async ({ email, role }: { email: string; role: string }) => {
+      const res = await fetch(`/api/folders/${id}/members/${encodeURIComponent(email)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role }),
+      });
+      if (!res.ok) throw new Error("Failed to update member");
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: membersQueryKey });
+      toast({ title: "Role updated" });
+    },
+    onError: () => toast({ title: "Failed to update role", variant: "destructive" }),
+  });
+
+  const removeMember = useMutation({
+    mutationFn: async (email: string) => {
+      const res = await fetch(`/api/folders/${id}/members/${encodeURIComponent(email)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error("Failed to remove member");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: membersQueryKey });
+      toast({ title: "Member removed from all campaigns in this folder" });
+    },
+    onError: () => toast({ title: "Failed to remove member", variant: "destructive" }),
+  });
+
   const handleInvite = () => {
     if (!inviteEmail.trim()) return;
     inviteToFolder.mutate({
@@ -132,10 +174,6 @@ export default function FolderDetail() {
       role: inviteRole,
     });
   };
-
-  const shareUrl = folder?.shareToken
-    ? `${window.location.origin}/shared/folder/${folder.shareToken}`
-    : null;
 
   const handleSaveTitle = () => {
     if (!editTitle.trim()) return;
@@ -148,35 +186,6 @@ export default function FolderDetail() {
         onError: () => toast({ title: "Error", description: "Failed to update folder", variant: "destructive" }),
       }
     );
-  };
-
-  const handleShare = () => {
-    shareFolderLink.mutate(
-      { id },
-      {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getListFoldersQueryKey() });
-          toast({ title: "Share link generated", description: "Anyone with the link can view this folder." });
-        },
-        onError: () => toast({ title: "Error", description: "Failed to generate share link", variant: "destructive" }),
-      }
-    );
-  };
-
-  const handleCopy = async () => {
-    if (!shareUrl) return;
-    await navigator.clipboard.writeText(shareUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-    toast({ title: "Copied to clipboard" });
-  };
-
-  const handleCopyForMember = async (memberId: string) => {
-    if (!shareUrl) return;
-    await navigator.clipboard.writeText(shareUrl);
-    setCopiedMemberId(memberId);
-    setTimeout(() => setCopiedMemberId(null), 2000);
-    toast({ title: "Link copied", description: "Share this view-only link with the team member." });
   };
 
   if (isFoldersLoading) {
@@ -215,8 +224,13 @@ export default function FolderDetail() {
                 <Folder className="w-4 h-4 text-muted-foreground" />
               </div>
               <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Folder</p>
+              {!(folder as any).isOwner && (
+                <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 border border-border/60 text-muted-foreground">
+                  Member
+                </span>
+              )}
             </div>
-            {isEditingTitle ? (
+            {isOwner && isEditingTitle ? (
               <div className="flex items-center gap-2">
                 <Input
                   value={editTitle}
@@ -230,8 +244,8 @@ export default function FolderDetail() {
               </div>
             ) : (
               <h1
-                className="text-4xl md:text-5xl font-bold tracking-tight cursor-text hover:bg-secondary/30 px-2 py-1 -ml-2 rounded-sm transition-colors"
-                onClick={() => { setEditTitle(folder.title); setIsEditingTitle(true); }}
+                className={`text-4xl md:text-5xl font-bold tracking-tight ${isOwner ? "cursor-text hover:bg-secondary/30 px-2 py-1 -ml-2 rounded-sm transition-colors" : ""}`}
+                onClick={() => { if (isOwner) { setEditTitle(folder.title); setIsEditingTitle(true); } }}
               >
                 {folder.title}
               </h1>
@@ -244,104 +258,101 @@ export default function FolderDetail() {
         </div>
       </header>
 
-      {/* Invite to Folder */}
+      {/* Members Section */}
       <div className="space-y-4">
         <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-          <UserPlus className="w-3.5 h-3.5" />
-          Invite to Folder
+          <Users className="w-3.5 h-3.5" />
+          Team Members
         </h2>
 
-        <div className="border border-border bg-card p-5 space-y-4">
-          <p className="text-xs text-muted-foreground">
-            Invite someone to all campaigns in this folder. They'll receive an email and see the campaigns after signing in.
-          </p>
+        {/* Invite form — owners only */}
+        {isOwner && (
+          <div className="border border-border bg-card p-5 space-y-4">
+            <div className="flex items-center gap-2">
+              <UserPlus className="w-3.5 h-3.5 text-muted-foreground" />
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Invite to Folder</p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Invite someone to all campaigns in this folder. They'll receive an email and see the campaigns after signing in.
+            </p>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">First Name</label>
-              <Input
-                value={inviteFirstName}
-                onChange={e => setInviteFirstName(e.target.value)}
-                className="rounded-none"
-                placeholder="Jane"
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">First Name</label>
+                <Input value={inviteFirstName} onChange={e => setInviteFirstName(e.target.value)} className="rounded-none" placeholder="Jane" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Last Name</label>
+                <Input value={inviteLastName} onChange={e => setInviteLastName(e.target.value)} className="rounded-none" placeholder="Smith" />
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Last Name</label>
-              <Input
-                value={inviteLastName}
-                onChange={e => setInviteLastName(e.target.value)}
-                className="rounded-none"
-                placeholder="Smith"
-              />
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Email *</label>
+                <Input
+                  type="email"
+                  value={inviteEmail}
+                  onChange={e => setInviteEmail(e.target.value)}
+                  className="rounded-none"
+                  placeholder="jane@company.com"
+                  onKeyDown={e => { if (e.key === "Enter") handleInvite(); }}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Role</label>
+                <Select value={inviteRole} onValueChange={setInviteRole}>
+                  <SelectTrigger className="rounded-none w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="owner">Owner</SelectItem>
+                    <SelectItem value="marketer">Marketer</SelectItem>
+                    <SelectItem value="team_member">Team Member</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
+
+            <Button
+              onClick={handleInvite}
+              disabled={!inviteEmail.trim() || inviteToFolder.isPending || campaigns?.length === 0}
+              className="bg-black text-white rounded-none gap-2 text-xs font-bold uppercase tracking-wider"
+            >
+              {inviteToFolder.isPending
+                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                : <Send className="w-3.5 h-3.5" />}
+              {inviteToFolder.isPending ? "Sending…" : `Invite to All ${campaigns?.length ?? 0} Campaign${campaigns?.length !== 1 ? "s" : ""}`}
+            </Button>
+
+            {campaigns?.length === 0 && (
+              <p className="text-xs text-amber-600 font-medium">Add campaigns to this folder first before inviting members.</p>
+            )}
           </div>
+        )}
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Email *</label>
-              <Input
-                type="email"
-                value={inviteEmail}
-                onChange={e => setInviteEmail(e.target.value)}
-                className="rounded-none"
-                placeholder="jane@company.com"
-                onKeyDown={e => { if (e.key === "Enter") handleInvite(); }}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Role</label>
-              <Select value={inviteRole} onValueChange={setInviteRole}>
-                <SelectTrigger className="rounded-none w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="owner">Owner</SelectItem>
-                  <SelectItem value="marketer">Marketer</SelectItem>
-                  <SelectItem value="team_member">Team Member</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <Button
-            onClick={handleInvite}
-            disabled={!inviteEmail.trim() || inviteToFolder.isPending || campaigns?.length === 0}
-            className="bg-black text-white rounded-none gap-2 text-xs font-bold uppercase tracking-wider"
-          >
-            {inviteToFolder.isPending
-              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              : <Send className="w-3.5 h-3.5" />}
-            {inviteToFolder.isPending ? "Sending…" : `Invite to All ${campaigns?.length ?? 0} Campaign${campaigns?.length !== 1 ? "s" : ""}`}
-          </Button>
-
-          {campaigns?.length === 0 && (
-            <p className="text-xs text-amber-600 font-medium">Add campaigns to this folder first before inviting members.</p>
-          )}
-        </div>
-
-        {/* Current members list */}
+        {/* Members list */}
         {members && members.length > 0 && (
           <div className="border border-border bg-card">
             <div className="px-5 py-3 border-b border-border/40 bg-secondary/5">
-              <p className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground">Current Members</p>
+              <p className="font-bold text-[10px] uppercase tracking-widest text-muted-foreground">
+                {members.length} {members.length === 1 ? "Member" : "Members"}
+              </p>
             </div>
             <div className="divide-y divide-border/30">
               {members.map(member => (
-                <div key={member.id} className="px-5 py-3 flex items-center gap-3">
+                <div key={member.id} className="px-5 py-3.5 flex items-center gap-3 group">
                   <div className="w-7 h-7 bg-secondary/30 border border-border/40 flex items-center justify-center shrink-0">
                     <span className="text-[10px] font-bold uppercase">
                       {(member.firstName || member.email).charAt(0)}
                     </span>
                   </div>
+
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold truncate">{memberDisplayName(member)}</p>
                     <div className="flex items-center gap-2 mt-0.5">
                       <Mail className="w-2.5 h-2.5 text-muted-foreground shrink-0" />
                       <p className="text-[10px] text-muted-foreground truncate">{member.email}</p>
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 border border-border/40 px-1.5 py-0.5 shrink-0">
-                        {member.role.replace("_", " ")}
-                      </span>
                       <span className={`text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 shrink-0 ${
                         member.accepted
                           ? "text-emerald-700 border border-emerald-200 bg-emerald-50"
@@ -351,78 +362,96 @@ export default function FolderDetail() {
                       </span>
                     </div>
                   </div>
+
+                  {isOwner ? (
+                    <div className="flex items-center gap-2 shrink-0">
+                      <Select
+                        value={member.role}
+                        onValueChange={(role) => updateMemberRole.mutate({ email: member.email, role })}
+                        disabled={updateMemberRole.isPending}
+                      >
+                        <SelectTrigger className="rounded-none h-8 text-xs w-36 border-border">
+                          <span className="flex items-center gap-1.5">
+                            <RoleIcon role={member.role} />
+                            <SelectValue />
+                          </span>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="owner">
+                            <span className="flex items-center gap-1.5">
+                              <Crown className="w-3 h-3 text-amber-600" /> Owner
+                            </span>
+                          </SelectItem>
+                          <SelectItem value="marketer">
+                            <span className="flex items-center gap-1.5">
+                              <Briefcase className="w-3 h-3 text-blue-600" /> Marketer
+                            </span>
+                          </SelectItem>
+                          <SelectItem value="team_member">
+                            <span className="flex items-center gap-1.5">
+                              <User className="w-3 h-3 text-muted-foreground" /> Team Member
+                            </span>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="rounded-none h-8 px-2 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Remove member?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              {memberDisplayName(member)} will be removed from all campaigns in this folder. This cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => removeMember.mutate(member.email)}
+                              className="bg-destructive text-white"
+                            >
+                              Remove
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  ) : (
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 border border-border/40 px-1.5 py-0.5 shrink-0">
+                      {member.role.replace("_", " ")}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
           </div>
         )}
-      </div>
 
-      {/* Sharing Section */}
-      <div className="space-y-6">
-        <h2 className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-          <Share2 className="w-3.5 h-3.5" />
-          View-Only Link
-        </h2>
-
-        <div className="border border-border bg-card p-5 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 border border-border flex items-center justify-center shrink-0">
-              <Lock className="w-3.5 h-3.5 text-muted-foreground" />
-            </div>
-            <div>
-              <p className="font-bold text-sm">External View-Only Link</p>
-              <p className="text-xs text-muted-foreground mt-0.5">Anyone with this link can view this folder — no editing permissions.</p>
-            </div>
-          </div>
-
-          {shareUrl ? (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <Input value={shareUrl} readOnly className="text-xs rounded-none font-mono border-border bg-secondary/5 flex-1" />
-                <Button
-                  size="icon"
-                  variant="outline"
-                  className="rounded-none shrink-0 border-border"
-                  onClick={handleCopy}
-                >
-                  {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-                </Button>
-                <a href={shareUrl} target="_blank" rel="noopener noreferrer">
-                  <Button size="icon" variant="outline" className="rounded-none shrink-0 border-border">
-                    <ExternalLink className="w-4 h-4" />
-                  </Button>
-                </a>
-              </div>
-              <p className="text-[10px] font-semibold text-emerald-600 uppercase tracking-widest flex items-center gap-1">
-                <Check className="w-3 h-3" />
-                Link active
-              </p>
-            </div>
-          ) : (
-            <Button
-              onClick={handleShare}
-              disabled={shareFolderLink.isPending}
-              variant="outline"
-              className="gap-2 rounded-none border-border"
-            >
-              {shareFolderLink.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
-              Generate Share Link
-            </Button>
-          )}
-        </div>
+        {(!members || members.length === 0) && !isOwner && (
+          <p className="text-sm text-muted-foreground italic">No members yet.</p>
+        )}
       </div>
 
       {/* Campaigns */}
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold tracking-tight">Campaigns in this folder</h2>
-          <Link href={`/campaigns/new`}>
-            <Button variant="outline" size="sm" className="rounded-none gap-2 text-[10px] font-bold uppercase tracking-widest border-border">
-              <FolderKanban className="w-3.5 h-3.5" />
-              Add Campaign
-            </Button>
-          </Link>
+          {isOwner && (
+            <Link href={`/campaigns/new`}>
+              <Button variant="outline" size="sm" className="rounded-none gap-2 text-[10px] font-bold uppercase tracking-widest border-border">
+                <FolderKanban className="w-3.5 h-3.5" />
+                Add Campaign
+              </Button>
+            </Link>
+          )}
         </div>
 
         {isCampaignsLoading ? (
@@ -433,7 +462,7 @@ export default function FolderDetail() {
           <div className="text-center py-16 border border-dashed border-border/80 bg-secondary/5">
             <FolderKanban className="w-10 h-10 mx-auto text-muted-foreground mb-3 opacity-40" />
             <p className="text-foreground font-semibold text-sm">No campaigns in this folder yet.</p>
-            <p className="text-xs text-muted-foreground mt-1">Create a new campaign and assign it to this folder.</p>
+            {isOwner && <p className="text-xs text-muted-foreground mt-1">Create a new campaign and assign it to this folder.</p>}
           </div>
         ) : (
           <div className="space-y-3">

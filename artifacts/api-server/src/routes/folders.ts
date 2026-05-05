@@ -4,7 +4,7 @@ import {
   foldersTable, campaignsTable, activityTable, contentPiecesTable,
   campaignMembersTable,
 } from "@workspace/db";
-import { eq, sql, and } from "drizzle-orm";
+import { eq, sql, and, inArray } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import {
   CreateFolderBody,
@@ -16,6 +16,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 import { sendInviteEmail } from "../email";
+import { clerkClient } from "@clerk/express";
 
 const router: IRouter = Router();
 
@@ -35,14 +36,67 @@ async function getFolderWithCount(folder: typeof foldersTable.$inferSelect) {
 
 router.get("/folders", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
-  const folders = await db
+
+  const ownedFolders = await db
     .select()
     .from(foldersTable)
     .where(eq(foldersTable.userId, userId))
     .orderBy(sql`${foldersTable.createdAt} desc`);
 
-  const withCounts = await Promise.all(folders.map(getFolderWithCount));
-  res.json(withCounts);
+  const ownedIds = new Set(ownedFolders.map(f => f.id));
+
+  // Also fetch folders the user was invited to (via accepted campaign membership)
+  let memberFolders: typeof foldersTable.$inferSelect[] = [];
+  try {
+    const clerkUser = await clerkClient.users.getUser(userId);
+    const email = clerkUser.emailAddresses?.[0]?.emailAddress;
+    if (email) {
+      const memberRows = await db
+        .select({ campaignId: campaignMembersTable.campaignId })
+        .from(campaignMembersTable)
+        .where(
+          and(
+            eq(campaignMembersTable.email, email),
+            eq(campaignMembersTable.accepted, true),
+          )
+        );
+
+      if (memberRows.length > 0) {
+        const campaignIds = memberRows.map(r => r.campaignId);
+        const campaignRows = await db
+          .select({ folderId: campaignsTable.folderId })
+          .from(campaignsTable)
+          .where(inArray(campaignsTable.id, campaignIds));
+
+        const folderIds = [
+          ...new Set(
+            campaignRows
+              .map(c => c.folderId)
+              .filter((fid): fid is number => fid !== null && !ownedIds.has(fid))
+          ),
+        ];
+
+        if (folderIds.length > 0) {
+          memberFolders = await db
+            .select()
+            .from(foldersTable)
+            .where(inArray(foldersTable.id, folderIds))
+            .orderBy(sql`${foldersTable.createdAt} desc`);
+        }
+      }
+    }
+  } catch {
+    // non-fatal: just return owned folders if Clerk lookup fails
+  }
+
+  const ownedWithCounts = await Promise.all(
+    ownedFolders.map(async f => ({ ...await getFolderWithCount(f), isOwner: true }))
+  );
+  const memberWithCounts = await Promise.all(
+    memberFolders.map(async f => ({ ...await getFolderWithCount(f), isOwner: false }))
+  );
+
+  res.json([...ownedWithCounts, ...memberWithCounts]);
 });
 
 router.post("/folders", requireAuth, async (req, res) => {
@@ -165,6 +219,77 @@ router.post("/folders/:id/invite", requireAuth, async (req, res) => {
     total: folderCampaigns.length,
     alreadyMember: folderCampaigns.length - invitedCount,
   });
+});
+
+// ── PATCH /folders/:id/members/:email ───────────────────────────────────────
+// Update a member's role across all campaigns in the folder
+router.patch("/folders/:id/members/:email", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
+  const folderId = parseInt(req.params.id, 10);
+  const email = decodeURIComponent(req.params.email);
+  const { role } = req.body as { role?: string };
+
+  if (!role) return res.status(400).json({ error: "role is required" });
+
+  const [folder] = await db
+    .select()
+    .from(foldersTable)
+    .where(and(eq(foldersTable.id, folderId), eq(foldersTable.userId, userId)));
+
+  if (!folder) return res.status(404).json({ error: "Folder not found" });
+
+  const permissions = DEFAULT_PERMISSIONS[role] ?? ["view"];
+  const folderCampaigns = await db
+    .select()
+    .from(campaignsTable)
+    .where(eq(campaignsTable.folderId, folderId));
+
+  for (const campaign of folderCampaigns) {
+    await db
+      .update(campaignMembersTable)
+      .set({ role, permissions })
+      .where(
+        and(
+          eq(campaignMembersTable.campaignId, campaign.id),
+          eq(campaignMembersTable.email, email),
+        )
+      );
+  }
+
+  res.json({ ok: true });
+});
+
+// ── DELETE /folders/:id/members/:email ──────────────────────────────────────
+// Remove a member from all campaigns in the folder
+router.delete("/folders/:id/members/:email", requireAuth, async (req, res) => {
+  const userId = (req as any).userId;
+  const folderId = parseInt(req.params.id, 10);
+  const email = decodeURIComponent(req.params.email);
+
+  const [folder] = await db
+    .select()
+    .from(foldersTable)
+    .where(and(eq(foldersTable.id, folderId), eq(foldersTable.userId, userId)));
+
+  if (!folder) return res.status(404).json({ error: "Folder not found" });
+
+  const folderCampaigns = await db
+    .select()
+    .from(campaignsTable)
+    .where(eq(campaignsTable.folderId, folderId));
+
+  for (const campaign of folderCampaigns) {
+    await db
+      .delete(campaignMembersTable)
+      .where(
+        and(
+          eq(campaignMembersTable.campaignId, campaign.id),
+          eq(campaignMembersTable.email, email),
+        )
+      );
+  }
+
+  res.status(204).send();
 });
 
 router.get("/folders/:id/info", requireAuth, async (req, res) => {
