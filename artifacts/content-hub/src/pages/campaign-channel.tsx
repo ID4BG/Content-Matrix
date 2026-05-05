@@ -221,6 +221,7 @@ export default function CampaignChannel() {
   const { data: campaign } = useGetCampaign(campaignId, {
     query: { enabled: !!campaignId, queryKey: getGetCampaignQueryKey(campaignId) },
   });
+  const isOwner = (campaign as any)?.isOwner === true;
 
   const { data: allPieces, isLoading } = useListContentPieces(
     { campaignId },
@@ -555,28 +556,32 @@ export default function CampaignChannel() {
           )}
         </div>
         <div className="flex items-center gap-2">
-          <input ref={fileInputRef} type="file" accept=".docx,.doc" className="hidden" onChange={handleFileChange} />
-          <input ref={attachDocRef} type="file" accept=".docx,.doc" className="hidden" onChange={handleAttachDoc} />
-          <Button
-            variant="outline"
-            onClick={() => attachDocRef.current?.click()}
-            disabled={isAttaching}
-            className="rounded-none gap-1.5 text-xs font-semibold uppercase tracking-wider border-border"
-            title="Attach a document for reference viewing"
-          >
-            {isAttaching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
-            {isAttaching ? "Attaching…" : "Attach Doc"}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={isImporting}
-            className="rounded-none gap-1.5 text-xs font-semibold uppercase tracking-wider border-border"
-            title="Import content pieces from a Word document"
-          >
-            {isImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileUp className="w-3.5 h-3.5" />}
-            {isImporting ? "Importing…" : "Import Doc"}
-          </Button>
+          {isOwner && (
+            <>
+              <input ref={fileInputRef} type="file" accept=".docx,.doc" className="hidden" onChange={handleFileChange} />
+              <input ref={attachDocRef} type="file" accept=".docx,.doc" className="hidden" onChange={handleAttachDoc} />
+              <Button
+                variant="outline"
+                onClick={() => attachDocRef.current?.click()}
+                disabled={isAttaching}
+                className="rounded-none gap-1.5 text-xs font-semibold uppercase tracking-wider border-border"
+                title="Attach a document for reference viewing"
+              >
+                {isAttaching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />}
+                {isAttaching ? "Attaching…" : "Attach Doc"}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isImporting}
+                className="rounded-none gap-1.5 text-xs font-semibold uppercase tracking-wider border-border"
+                title="Import content pieces from a Word document"
+              >
+                {isImporting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileUp className="w-3.5 h-3.5" />}
+                {isImporting ? "Importing…" : "Import Doc"}
+              </Button>
+            </>
+          )}
           <Button onClick={() => setIsAddOpen(true)} className="bg-black text-white rounded-none gap-1.5 text-xs font-semibold uppercase tracking-wider">
             <Plus className="w-3.5 h-3.5" />
             Add Piece
@@ -611,14 +616,16 @@ export default function CampaignChannel() {
                   <Eye className="w-3 h-3" />
                   View
                 </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="rounded-none h-8 px-2 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={() => handleDeleteDoc(doc.id)}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </Button>
+                {isOwner && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="rounded-none h-8 px-2 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => handleDeleteDoc(doc.id)}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                )}
               </div>
             </div>
           ))}
