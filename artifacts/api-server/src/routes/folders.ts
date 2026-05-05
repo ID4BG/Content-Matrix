@@ -26,6 +26,27 @@ const DEFAULT_PERMISSIONS: Record<string, string[]> = {
   team_member: ["view", "comment"],
 };
 
+async function getUserRoleInFolder(userId: string, folderCampaignIds: number[]): Promise<string | null> {
+  if (folderCampaignIds.length === 0) return null;
+  try {
+    const clerkUser = await clerkClient.users.getUser(userId);
+    const email = clerkUser.emailAddresses?.[0]?.emailAddress;
+    if (!email) return null;
+    const [row] = await db
+      .select({ role: campaignMembersTable.role })
+      .from(campaignMembersTable)
+      .where(and(
+        inArray(campaignMembersTable.campaignId, folderCampaignIds),
+        eq(campaignMembersTable.email, email),
+        eq(campaignMembersTable.accepted, true),
+      ))
+      .limit(1);
+    return row?.role ?? null;
+  } catch {
+    return null;
+  }
+}
+
 async function getFolderWithCount(folder: typeof foldersTable.$inferSelect) {
   const [row] = await db
     .select({ count: sql<number>`count(*)`.mapWith(Number) })
@@ -93,7 +114,15 @@ router.get("/folders", requireAuth, async (req, res) => {
     ownedFolders.map(async f => ({ ...await getFolderWithCount(f), isOwner: true }))
   );
   const memberWithCounts = await Promise.all(
-    memberFolders.map(async f => ({ ...await getFolderWithCount(f), isOwner: false }))
+    memberFolders.map(async f => {
+      const folderCampaignIds = await db
+        .select({ id: campaignsTable.id })
+        .from(campaignsTable)
+        .where(eq(campaignsTable.folderId, f.id))
+        .then(rows => rows.map(r => r.id));
+      const role = await getUserRoleInFolder(userId, folderCampaignIds);
+      return { ...await getFolderWithCount(f), isOwner: role === "owner" };
+    })
   );
 
   res.json([...ownedWithCounts, ...memberWithCounts]);
@@ -130,12 +159,21 @@ router.delete("/folders/:id", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
   const { id } = DeleteFolderParams.parse(req.params);
 
-  const [deleted] = await db
-    .delete(foldersTable)
-    .where(and(eq(foldersTable.id, id), eq(foldersTable.userId, userId)))
-    .returning({ id: foldersTable.id });
+  const [folder] = await db.select().from(foldersTable).where(eq(foldersTable.id, id));
+  if (!folder) return res.status(404).json({ error: "Folder not found" });
 
-  if (!deleted) return res.status(404).json({ error: "Folder not found or you do not have permission to delete it" });
+  const isCreator = folder.userId === userId;
+  if (!isCreator) {
+    const folderCampaignIds = await db
+      .select({ id: campaignsTable.id })
+      .from(campaignsTable)
+      .where(eq(campaignsTable.folderId, id))
+      .then(rows => rows.map(r => r.id));
+    const role = await getUserRoleInFolder(userId, folderCampaignIds);
+    if (role !== "owner") return res.status(403).json({ error: "You do not have permission to delete this folder" });
+  }
+
+  await db.delete(foldersTable).where(eq(foldersTable.id, id));
   res.status(204).send();
 });
 

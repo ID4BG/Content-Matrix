@@ -102,7 +102,33 @@ router.get("/campaigns", requireAuth, async (req, res) => {
     .groupBy(contentPiecesTable.campaignId);
 
   const countMap = new Map(counts.map((c) => [c.campaignId, c.count]));
-  res.json(campaigns.map((c) => withCount(c, countMap.get(c.id) ?? 0, c.userId === userId)));
+  // Batch-load member roles for non-owned campaigns so owner-role members get isOwner = true
+  const nonOwnedIds = campaigns.filter(c => c.userId !== userId).map(c => c.id);
+  const memberRoleMap = new Map<number, string>();
+  if (nonOwnedIds.length > 0) {
+    try {
+      const clerkUser = await clerkClient.users.getUser(userId);
+      const email = clerkUser.emailAddresses?.[0]?.emailAddress;
+      if (email) {
+        const roleRows = await db
+          .select({ campaignId: campaignMembersTable.campaignId, role: campaignMembersTable.role })
+          .from(campaignMembersTable)
+          .where(and(
+            inArray(campaignMembersTable.campaignId, nonOwnedIds),
+            eq(campaignMembersTable.email, email),
+            eq(campaignMembersTable.accepted, true),
+          ));
+        for (const r of roleRows) memberRoleMap.set(r.campaignId, r.role);
+      }
+    } catch { /* non-fatal */ }
+  }
+
+  res.json(campaigns.map((c) => {
+    const isCreator = c.userId === userId;
+    const memberRole = memberRoleMap.get(c.id);
+    const effectiveOwner = isCreator || memberRole === "owner";
+    return withCount(c, countMap.get(c.id) ?? 0, effectiveOwner, effectiveOwner ? "owner" : memberRole);
+  }));
 });
 
 router.post("/campaigns", requireAuth, async (req, res) => {
@@ -135,17 +161,18 @@ router.get("/campaigns/:id", requireAuth, async (req, res) => {
 
   if (!campaign) return res.status(404).json({ error: "Campaign not found" });
 
-  const isOwner = campaign.userId === userId;
-  if (!isOwner) {
+  const isCreator = campaign.userId === userId;
+  if (!isCreator) {
     const memberIds = await getMemberCampaignIds(userId);
     if (!memberIds.includes(id)) {
       return res.status(403).json({ error: "Access denied" });
     }
   }
 
-  const memberRole = isOwner ? null : await getMemberRole(userId, id);
-  const currentUserRole = isOwner ? "owner" : (memberRole ?? "team_member");
-  res.json(withCount(campaign, await getPieceCount(id), isOwner, currentUserRole));
+  const memberRole = isCreator ? null : await getMemberRole(userId, id);
+  const effectiveOwner = isCreator || memberRole === "owner";
+  const currentUserRole = effectiveOwner ? "owner" : (memberRole ?? "team_member");
+  res.json(withCount(campaign, await getPieceCount(id), effectiveOwner, currentUserRole));
 });
 
 router.patch("/campaigns/:id", requireAuth, async (req, res) => {
@@ -166,11 +193,17 @@ router.patch("/campaigns/:id", requireAuth, async (req, res) => {
 router.delete("/campaigns/:id", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
   const { id } = DeleteCampaignParams.parse(req.params);
-  const [deleted] = await db
-    .delete(campaignsTable)
-    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.userId, userId)))
-    .returning({ id: campaignsTable.id });
-  if (!deleted) return res.status(404).json({ error: "Campaign not found or you do not have permission to delete it" });
+
+  const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
+  if (!campaign) return res.status(404).json({ error: "Campaign not found" });
+
+  const isCreator = campaign.userId === userId;
+  if (!isCreator) {
+    const role = await getMemberRole(userId, id);
+    if (role !== "owner") return res.status(403).json({ error: "You do not have permission to delete this campaign" });
+  }
+
+  await db.delete(campaignsTable).where(eq(campaignsTable.id, id));
   res.status(204).send();
 });
 
@@ -178,10 +211,19 @@ router.post("/campaigns/:id/approve", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
   const { id } = ApproveCampaignParams.parse(req.params);
 
+  const [existing] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
+  if (!existing) return res.status(404).json({ error: "Campaign not found" });
+
+  const isCreator = existing.userId === userId;
+  if (!isCreator) {
+    const role = await getMemberRole(userId, id);
+    if (role !== "owner") return res.status(403).json({ error: "Only owners can approve campaigns" });
+  }
+
   const [updated] = await db
     .update(campaignsTable)
     .set({ status: "approved", approvedAt: new Date(), updatedAt: new Date() })
-    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.userId, userId)))
+    .where(eq(campaignsTable.id, id))
     .returning();
 
   if (!updated) return res.status(404).json({ error: "Campaign not found" });
@@ -200,10 +242,19 @@ router.post("/campaigns/:id/disapprove", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
   const { id } = ApproveCampaignParams.parse(req.params);
 
+  const [existing] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
+  if (!existing) return res.status(404).json({ error: "Campaign not found" });
+
+  const isCreator = existing.userId === userId;
+  if (!isCreator) {
+    const role = await getMemberRole(userId, id);
+    if (role !== "owner") return res.status(403).json({ error: "Only owners can disapprove campaigns" });
+  }
+
   const [updated] = await db
     .update(campaignsTable)
     .set({ status: "draft", approvedAt: null, updatedAt: new Date() })
-    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.userId, userId)))
+    .where(eq(campaignsTable.id, id))
     .returning();
 
   if (!updated) return res.status(404).json({ error: "Campaign not found" });
@@ -214,12 +265,20 @@ router.post("/campaigns/:id/share", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
   const { id } = ShareCampaignLinkParams.parse(req.params);
 
-  const token = randomBytes(16).toString("hex");
+  const [existing] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
+  if (!existing) return res.status(404).json({ error: "Campaign not found" });
 
+  const isCreator = existing.userId === userId;
+  if (!isCreator) {
+    const role = await getMemberRole(userId, id);
+    if (role !== "owner") return res.status(403).json({ error: "Only owners can share campaigns" });
+  }
+
+  const token = randomBytes(16).toString("hex");
   const [updated] = await db
     .update(campaignsTable)
     .set({ shareToken: token, updatedAt: new Date() })
-    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.userId, userId)))
+    .where(eq(campaignsTable.id, id))
     .returning();
 
   if (!updated) return res.status(404).json({ error: "Campaign not found" });
@@ -251,10 +310,19 @@ router.patch("/campaigns/:id/channels", requireAuth, async (req, res) => {
   const { id } = UpdateCampaignChannelsParams.parse(req.params);
   const body = UpdateCampaignChannelsBody.parse(req.body);
 
+  const [existing] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
+  if (!existing) return res.status(404).json({ error: "Campaign not found" });
+
+  const isCreator = existing.userId === userId;
+  if (!isCreator) {
+    const role = await getMemberRole(userId, id);
+    if (role !== "owner") return res.status(403).json({ error: "Only owners can update channels" });
+  }
+
   const [updated] = await db
     .update(campaignsTable)
     .set({ channels: body.channels, updatedAt: new Date() })
-    .where(and(eq(campaignsTable.id, id), eq(campaignsTable.userId, userId)))
+    .where(eq(campaignsTable.id, id))
     .returning();
 
   if (!updated) return res.status(404).json({ error: "Campaign not found" });
