@@ -11,7 +11,15 @@ const ALLOWED_EMAILS = ["arnela.ayvazyan@gmail.com"];
 
 const OWNER_PERMISSIONS = ["view", "comment", "edit", "create", "approve", "invite"];
 
+router.get("/admin/fix-ownership", requireAuth, async (req, res) => {
+  return handleFix(req, res);
+});
+
 router.post("/admin/fix-ownership", requireAuth, async (req, res) => {
+  return handleFix(req, res);
+});
+
+async function handleFix(req: any, res: any) {
   const userId = (req as any).userId;
 
   let email: string | undefined;
@@ -63,6 +71,6 @@ router.post("/admin/fix-ownership", requireAuth, async (req, res) => {
       ? `Promoted to owner on campaign(s): ${promoted.join(", ")}`
       : "No campaigns needed fixing",
   });
-});
+}
 
 export default router;

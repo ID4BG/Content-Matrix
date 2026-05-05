@@ -26,6 +26,7 @@ import SharedCampaign from "@/pages/shared-campaign";
 import Settings from "@/pages/settings";
 import NotFound from "@/pages/not-found";
 import LandingPage from "@/pages/landing";
+import AdminFix from "@/pages/admin-fix";
 
 const queryClient = new QueryClient();
 
@@ -135,6 +136,7 @@ function Router() {
       <Route path="/folders"><PrivateRoute component={FolderList} /></Route>
       <Route path="/folders/:id"><PrivateRoute component={FolderDetail} /></Route>
       <Route path="/settings"><PrivateRoute component={Settings} /></Route>
+      <Route path="/admin/fix-my-access"><PrivateRoute component={AdminFix} /></Route>
 
       <Route path="/shared/folder/:token" component={SharedFolder} />
       <Route path="/shared/campaign/:token" component={SharedCampaign} />
