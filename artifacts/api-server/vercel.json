@@ -1,5 +1,16 @@
 {
+  "version": 2,
   "buildCommand": "pnpm run build",
-  "outputDirectory": "dist",
-  "framework": null
+  "builds": [
+    {
+      "src": "dist/vercel.mjs",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "dist/vercel.mjs"
+    }
+  ]
 }
