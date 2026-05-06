@@ -20492,16 +20492,16 @@ var require_router = __commonJS({
         return new Router11(options);
       }
       const opts = options || {};
-      function router11(req, res, next) {
-        router11.handle(req, res, next);
+      function router12(req, res, next) {
+        router12.handle(req, res, next);
       }
-      Object.setPrototypeOf(router11, this);
-      router11.caseSensitive = opts.caseSensitive;
-      router11.mergeParams = opts.mergeParams;
-      router11.params = {};
-      router11.strict = opts.strict;
-      router11.stack = [];
-      return router11;
+      Object.setPrototypeOf(router12, this);
+      router12.caseSensitive = opts.caseSensitive;
+      router12.mergeParams = opts.mergeParams;
+      router12.params = {};
+      router12.strict = opts.strict;
+      router12.stack = [];
+      return router12;
     }
     Router11.prototype = function() {
     };
@@ -20889,7 +20889,7 @@ var require_application = __commonJS({
     var app2 = exports = module.exports = {};
     var trustProxyDefaultSymbol = "@@symbol:trust_proxy_default";
     app2.init = function init() {
-      var router11 = null;
+      var router12 = null;
       this.cache = /* @__PURE__ */ Object.create(null);
       this.engines = /* @__PURE__ */ Object.create(null);
       this.settings = /* @__PURE__ */ Object.create(null);
@@ -20898,13 +20898,13 @@ var require_application = __commonJS({
         configurable: true,
         enumerable: true,
         get: function getrouter() {
-          if (router11 === null) {
-            router11 = new Router11({
+          if (router12 === null) {
+            router12 = new Router11({
               caseSensitive: this.enabled("case sensitive routing"),
               strict: this.enabled("strict routing")
             });
           }
-          return router11;
+          return router12;
         }
       });
     };
@@ -20975,15 +20975,15 @@ var require_application = __commonJS({
       if (fns.length === 0) {
         throw new TypeError("app.use() requires a middleware function");
       }
-      var router11 = this.router;
+      var router12 = this.router;
       fns.forEach(function(fn2) {
         if (!fn2 || !fn2.handle || !fn2.set) {
-          return router11.use(path, fn2);
+          return router12.use(path, fn2);
         }
         debug(".use app under %s", path);
         fn2.mountpath = path;
         fn2.parent = this;
-        router11.use(path, function mounted_app(req, res, next) {
+        router12.use(path, function mounted_app(req, res, next) {
           var orig = req.app;
           fn2.handle(req, res, function(err) {
             Object.setPrototypeOf(req, orig.request);
@@ -33120,11 +33120,11 @@ var require_router2 = __commonJS({
     var debug = debug_1.Debug.extend("router");
     async function getTarget(req, config2) {
       let newTarget;
-      const router11 = config2.router;
-      if ((0, is_plain_object_1.isPlainObject)(router11)) {
-        newTarget = getTargetFromProxyTable(req, router11);
-      } else if (typeof router11 === "function") {
-        newTarget = await router11(req);
+      const router12 = config2.router;
+      if ((0, is_plain_object_1.isPlainObject)(router12)) {
+        newTarget = getTargetFromProxyTable(req, router12);
+      } else if (typeof router12 === "function") {
+        newTarget = await router12(req);
       }
       return newTarget;
     }
@@ -55387,7 +55387,7 @@ var require_multer = __commonJS({
 });
 
 // src/app.ts
-var import_express18 = __toESM(require_express2(), 1);
+var import_express19 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_pino_http = __toESM(require_logger(), 1);
 
@@ -63633,10 +63633,18 @@ function clerkProxyMiddleware() {
 }
 
 // src/routes/index.ts
-var import_express17 = __toESM(require_express2(), 1);
+var import_express18 = __toESM(require_express2(), 1);
+
+// src/routes/health.ts
+var import_express = __toESM(require_express2(), 1);
+var router = import_express.default.Router();
+router.get("/healthz", (_req, res) => {
+  return res.status(200).json({ status: "ok" });
+});
+var health_default = router;
 
 // src/routes/campaigns.ts
-var import_express2 = __toESM(require_express2(), 1);
+var import_express3 = __toESM(require_express2(), 1);
 
 // ../../node_modules/.pnpm/pg@8.20.0/node_modules/pg/esm/index.mjs
 var import_lib = __toESM(require_lib5(), 1);
@@ -86874,7 +86882,7 @@ function requireAuth(req, res, next) {
 }
 
 // src/routes/campaigns.ts
-var router = (0, import_express2.Router)();
+var router2 = (0, import_express3.Router)();
 function withCount(campaign, count, isOwner = true, currentUserRole) {
   return {
     ...campaign,
@@ -86920,7 +86928,7 @@ async function getMemberRole(userId, campaignId) {
     return null;
   }
 }
-router.get("/campaigns", requireAuth, async (req, res) => {
+router2.get("/campaigns", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { folderId } = ListCampaignsQueryParams.parse(req.query);
   const memberCampaignIds = await getMemberCampaignIds(userId);
@@ -86972,7 +86980,7 @@ router.get("/campaigns", requireAuth, async (req, res) => {
   );
   return;
 });
-router.post("/campaigns", requireAuth, async (req, res) => {
+router2.post("/campaigns", requireAuth, async (req, res) => {
   const userId = req.userId;
   const body = CreateCampaignBody.parse(req.body);
   const [campaign] = await db.insert(campaignsTable).values({ ...body, userId }).returning();
@@ -86985,7 +86993,7 @@ router.post("/campaigns", requireAuth, async (req, res) => {
   res.status(201).json(withCount(campaign, 0));
   return;
 });
-router.get("/campaigns/:id", requireAuth, async (req, res) => {
+router2.get("/campaigns/:id", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { id } = GetCampaignParams.parse(req.params);
   const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
@@ -87014,7 +87022,7 @@ router.get("/campaigns/:id", requireAuth, async (req, res) => {
   );
   return;
 });
-router.patch("/campaigns/:id", requireAuth, async (req, res) => {
+router2.patch("/campaigns/:id", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { id } = UpdateCampaignParams.parse(req.params);
   const body = UpdateCampaignBody.parse(req.body);
@@ -87026,7 +87034,7 @@ router.patch("/campaigns/:id", requireAuth, async (req, res) => {
   res.json(withCount(updated, await getPieceCount(id)));
   return;
 });
-router.delete("/campaigns/:id", requireAuth, async (req, res) => {
+router2.delete("/campaigns/:id", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { id } = DeleteCampaignParams.parse(req.params);
   const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
@@ -87046,7 +87054,7 @@ router.delete("/campaigns/:id", requireAuth, async (req, res) => {
   res.status(204).send();
   return;
 });
-router.post("/campaigns/:id/approve", requireAuth, async (req, res) => {
+router2.post("/campaigns/:id/approve", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { id } = ApproveCampaignParams.parse(req.params);
   const [existing] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
@@ -87080,7 +87088,7 @@ router.post("/campaigns/:id/approve", requireAuth, async (req, res) => {
   res.json(withCount(updated, await getPieceCount(id)));
   return;
 });
-router.post("/campaigns/:id/disapprove", requireAuth, async (req, res) => {
+router2.post("/campaigns/:id/disapprove", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { id } = ApproveCampaignParams.parse(req.params);
   const [existing] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
@@ -87108,7 +87116,7 @@ router.post("/campaigns/:id/disapprove", requireAuth, async (req, res) => {
   res.json(withCount(updated, await getPieceCount(id)));
   return;
 });
-router.post("/campaigns/:id/share", requireAuth, async (req, res) => {
+router2.post("/campaigns/:id/share", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { id } = ShareCampaignLinkParams.parse(req.params);
   const [existing] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
@@ -87136,7 +87144,7 @@ router.post("/campaigns/:id/share", requireAuth, async (req, res) => {
   res.json(withCount(updated, await getPieceCount(id)));
   return;
 });
-router.get("/shared/campaign/:token", async (req, res) => {
+router2.get("/shared/campaign/:token", async (req, res) => {
   const { token } = GetSharedCampaignParams.parse(req.params);
   const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.shareToken, token));
   if (!campaign) {
@@ -87156,7 +87164,7 @@ router.get("/shared/campaign/:token", async (req, res) => {
   });
   return;
 });
-router.patch("/campaigns/:id/channels", requireAuth, async (req, res) => {
+router2.patch("/campaigns/:id/channels", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { id } = UpdateCampaignChannelsParams.parse(req.params);
   const body = UpdateCampaignChannelsBody.parse(req.body);
@@ -87184,10 +87192,10 @@ router.patch("/campaigns/:id/channels", requireAuth, async (req, res) => {
   res.json(withCount(updated, await getPieceCount(id)));
   return;
 });
-var campaigns_default = router;
+var campaigns_default = router2;
 
 // src/routes/campaign-members.ts
-var import_express4 = __toESM(require_express2(), 1);
+var import_express5 = __toESM(require_express2(), 1);
 
 // src/email.ts
 import nodemailer from "nodemailer";
@@ -87288,18 +87296,18 @@ async function sendInviteEmail(opts) {
 }
 
 // src/routes/campaign-members.ts
-var router2 = (0, import_express4.Router)();
+var router3 = (0, import_express5.Router)();
 var DEFAULT_PERMISSIONS = {
   owner: ["view", "comment", "edit", "create", "approve", "invite"],
   marketer: ["view", "comment", "edit", "create"],
   team_member: ["view", "comment"]
 };
-router2.get("/campaigns/:id/members", requireAuth, async (req, res) => {
+router3.get("/campaigns/:id/members", requireAuth, async (req, res) => {
   const { id } = ListCampaignMembersParams.parse(req.params);
   const members = await db.select().from(campaignMembersTable).where(eq(campaignMembersTable.campaignId, id));
   res.json(members);
 });
-router2.post("/campaigns/:id/members", requireAuth, async (req, res) => {
+router3.post("/campaigns/:id/members", requireAuth, async (req, res) => {
   const { id } = InviteCampaignMemberParams.parse(req.params);
   const body = InviteCampaignMemberBody.parse(req.body);
   const permissions = body.permissions?.length ? body.permissions : DEFAULT_PERMISSIONS[body.role] ?? ["view"];
@@ -87324,7 +87332,7 @@ router2.post("/campaigns/:id/members", requireAuth, async (req, res) => {
   });
   res.status(201).json(member);
 });
-router2.patch("/campaigns/:id/members/:memberId", requireAuth, async (req, res) => {
+router3.patch("/campaigns/:id/members/:memberId", requireAuth, async (req, res) => {
   const { memberId } = UpdateCampaignMemberParams.parse(req.params);
   const body = UpdateCampaignMemberBody.parse(req.body);
   const updateData = {};
@@ -87336,16 +87344,16 @@ router2.patch("/campaigns/:id/members/:memberId", requireAuth, async (req, res) 
   if (!updated) return void res.status(404).json({ error: "Member not found" });
   res.json(updated);
 });
-router2.delete("/campaigns/:id/members/:memberId", requireAuth, async (req, res) => {
+router3.delete("/campaigns/:id/members/:memberId", requireAuth, async (req, res) => {
   const { memberId } = DeleteCampaignMemberParams.parse(req.params);
   await db.delete(campaignMembersTable).where(eq(campaignMembersTable.id, memberId));
   res.status(204).send();
 });
-var campaign_members_default = router2;
+var campaign_members_default = router3;
 
 // src/routes/content-pieces.ts
-var import_express5 = __toESM(require_express2(), 1);
-var router3 = (0, import_express5.Router)();
+var import_express6 = __toESM(require_express2(), 1);
+var router4 = (0, import_express6.Router)();
 var ROLE_PERMISSIONS = {
   owner: ["view", "comment", "create", "edit", "delete", "approve"],
   marketer: ["view", "comment", "create", "edit"],
@@ -87377,7 +87385,7 @@ function can(role, permission) {
   if (!role) return false;
   return (ROLE_PERMISSIONS[role] ?? []).includes(permission);
 }
-router3.get("/content-pieces", requireAuth, async (req, res) => {
+router4.get("/content-pieces", requireAuth, async (req, res) => {
   const params = ListContentPiecesQueryParams.parse(req.query);
   const conditions = [];
   if (params.campaignId) conditions.push(eq(contentPiecesTable.campaignId, params.campaignId));
@@ -87387,7 +87395,7 @@ router3.get("/content-pieces", requireAuth, async (req, res) => {
   const countMap = new Map(commentCounts.map((c) => [c.contentPieceId, c.count]));
   res.json(pieces.map((p) => ({ ...p, commentCount: countMap.get(p.id) ?? 0 })));
 });
-router3.post("/content-pieces/reorder", requireAuth, async (req, res) => {
+router4.post("/content-pieces/reorder", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { items } = req.body;
   if (!Array.isArray(items) || items.length === 0) return void res.status(400).json({ error: "items must be a non-empty array" });
@@ -87401,7 +87409,7 @@ router3.post("/content-pieces/reorder", requireAuth, async (req, res) => {
   }
   res.json({ ok: true });
 });
-router3.post("/content-pieces", requireAuth, async (req, res) => {
+router4.post("/content-pieces", requireAuth, async (req, res) => {
   const userId = req.userId;
   const body = CreateContentPieceBody.parse(req.body);
   const role = await getUserRoleForCampaign(userId, body.campaignId);
@@ -87427,7 +87435,7 @@ router3.post("/content-pieces", requireAuth, async (req, res) => {
   });
   res.status(201).json({ ...piece, commentCount: 0 });
 });
-router3.get("/content-pieces/:id", requireAuth, async (req, res) => {
+router4.get("/content-pieces/:id", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { id } = GetContentPieceParams.parse(req.params);
   const [piece] = await db.select().from(contentPiecesTable).where(eq(contentPiecesTable.id, id));
@@ -87437,7 +87445,7 @@ router3.get("/content-pieces/:id", requireAuth, async (req, res) => {
   const commentCount = await getPieceWithCommentCount(id);
   res.json({ ...piece, commentCount });
 });
-router3.patch("/content-pieces/:id", requireAuth, async (req, res) => {
+router4.patch("/content-pieces/:id", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { id } = UpdateContentPieceParams.parse(req.params);
   const body = UpdateContentPieceBody.parse(req.body);
@@ -87459,7 +87467,7 @@ router3.patch("/content-pieces/:id", requireAuth, async (req, res) => {
   const commentCount = await getPieceWithCommentCount(id);
   res.json({ ...updated, commentCount });
 });
-router3.delete("/content-pieces/:id", requireAuth, async (req, res) => {
+router4.delete("/content-pieces/:id", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { id } = DeleteContentPieceParams.parse(req.params);
   const [piece] = await db.select({ campaignId: contentPiecesTable.campaignId }).from(contentPiecesTable).where(eq(contentPiecesTable.id, id));
@@ -87470,7 +87478,7 @@ router3.delete("/content-pieces/:id", requireAuth, async (req, res) => {
   if (!deleted) return void res.status(404).json({ error: "Content piece not found" });
   res.status(204).send();
 });
-router3.post("/content-pieces/:id/approve", requireAuth, async (req, res) => {
+router4.post("/content-pieces/:id/approve", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { id } = ApproveContentPieceParams.parse(req.params);
   const [piece] = await db.select({ campaignId: contentPiecesTable.campaignId }).from(contentPiecesTable).where(eq(contentPiecesTable.id, id));
@@ -87488,7 +87496,7 @@ router3.post("/content-pieces/:id/approve", requireAuth, async (req, res) => {
   const commentCount = await getPieceWithCommentCount(id);
   res.json({ ...updated, commentCount });
 });
-router3.post("/content-pieces/:id/disapprove", requireAuth, async (req, res) => {
+router4.post("/content-pieces/:id/disapprove", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { id } = DisapproveContentPieceParams.parse(req.params);
   const [piece] = await db.select().from(contentPiecesTable).where(eq(contentPiecesTable.id, id));
@@ -87500,7 +87508,7 @@ router3.post("/content-pieces/:id/disapprove", requireAuth, async (req, res) => 
   const commentCount = await getPieceWithCommentCount(id);
   res.json({ ...updated, commentCount });
 });
-router3.post("/content-pieces/:id/submit-review", requireAuth, async (req, res) => {
+router4.post("/content-pieces/:id/submit-review", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { id } = SubmitContentPieceForReviewParams.parse(req.params);
   const body = SubmitContentPieceForReviewBody.parse(req.body);
@@ -87548,15 +87556,15 @@ router3.post("/content-pieces/:id/submit-review", requireAuth, async (req, res) 
   const commentCount = await getPieceWithCommentCount(id);
   res.json({ ...updated, commentCount });
 });
-var content_pieces_default = router3;
+var content_pieces_default = router4;
 
 // src/routes/import-document.ts
-var import_express7 = __toESM(require_express2(), 1);
+var import_express8 = __toESM(require_express2(), 1);
 var import_multer = __toESM(require_multer(), 1);
 import { createRequire } from "module";
 var require2 = createRequire(import.meta.url);
 var mammoth = require2("mammoth");
-var router4 = (0, import_express7.Router)();
+var router5 = (0, import_express8.Router)();
 var upload = (0, import_multer.default)({ storage: import_multer.default.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 function parseDocumentText(text2) {
   const lines = text2.split("\n").map((l) => l.trim());
@@ -87677,7 +87685,7 @@ ${hashtagLine}` : hashtagLine;
     return { title: section.title, bodyText };
   });
 }
-router4.post(
+router5.post(
   "/content-pieces/import-document",
   requireAuth,
   upload.single("file"),
@@ -87730,7 +87738,7 @@ router4.post(
     }
   }
 );
-router4.post(
+router5.post(
   "/content-pieces/attach-document",
   requireAuth,
   upload.single("file"),
@@ -87762,17 +87770,17 @@ router4.post(
     }
   }
 );
-var import_document_default = router4;
+var import_document_default = router5;
 
 // src/routes/comments.ts
-var import_express8 = __toESM(require_express2(), 1);
-var router5 = (0, import_express8.Router)();
-router5.get("/comments", async (req, res) => {
+var import_express9 = __toESM(require_express2(), 1);
+var router6 = (0, import_express9.Router)();
+router6.get("/comments", async (req, res) => {
   const params = ListCommentsQueryParams.parse(req.query);
   const comments = await db.select().from(commentsTable).where(eq(commentsTable.contentPieceId, params.contentPieceId)).orderBy(sql`${commentsTable.createdAt} asc`);
   res.json(comments);
 });
-router5.post("/comments", async (req, res) => {
+router6.post("/comments", async (req, res) => {
   const body = CreateCommentBody.parse(req.body);
   const [comment] = await db.insert(commentsTable).values(body).returning();
   const [piece] = await db.select().from(contentPiecesTable).where(eq(contentPiecesTable.id, body.contentPieceId));
@@ -87786,16 +87794,16 @@ router5.post("/comments", async (req, res) => {
   }
   res.status(201).json(comment);
 });
-router5.delete("/comments/:id", async (req, res) => {
+router6.delete("/comments/:id", async (req, res) => {
   const { id } = DeleteCommentParams.parse(req.params);
   await db.delete(commentsTable).where(eq(commentsTable.id, id));
   res.status(204).send();
 });
-var comments_default = router5;
+var comments_default = router6;
 
 // src/routes/dashboard.ts
-var import_express9 = __toESM(require_express2(), 1);
-var router6 = (0, import_express9.Router)();
+var import_express10 = __toESM(require_express2(), 1);
+var router7 = (0, import_express10.Router)();
 async function getAllAccessibleCampaignIds(userId) {
   const ownedRows = await db.select({ id: campaignsTable.id }).from(campaignsTable).where(eq(campaignsTable.userId, userId));
   let memberIds = [];
@@ -87813,7 +87821,7 @@ async function getAllAccessibleCampaignIds(userId) {
   }
   return [.../* @__PURE__ */ new Set([...ownedRows.map((c) => c.id), ...memberIds])];
 }
-router6.get("/dashboard/summary", requireAuth, async (req, res) => {
+router7.get("/dashboard/summary", requireAuth, async (req, res) => {
   const userId = req.userId;
   const allIds = await getAllAccessibleCampaignIds(userId);
   const totalCampaigns = allIds.length;
@@ -87839,19 +87847,19 @@ router6.get("/dashboard/summary", requireAuth, async (req, res) => {
     campaignsByStatus: campaignStatusMap
   });
 });
-router6.get("/dashboard/activity", requireAuth, async (req, res) => {
+router7.get("/dashboard/activity", requireAuth, async (req, res) => {
   const userId = req.userId;
   const allIds = await getAllAccessibleCampaignIds(userId);
   if (!allIds.length) return void res.json([]);
   const activity = await db.select().from(activityTable).where(inArray(activityTable.entityId, allIds)).orderBy(sql`${activityTable.createdAt} desc`).limit(20);
   res.json(activity);
 });
-var dashboard_default = router6;
+var dashboard_default = router7;
 
 // src/routes/folders.ts
-var import_express11 = __toESM(require_express2(), 1);
+var import_express12 = __toESM(require_express2(), 1);
 import { randomBytes as randomBytes2 } from "crypto";
-var router7 = (0, import_express11.Router)();
+var router8 = (0, import_express12.Router)();
 var DEFAULT_PERMISSIONS2 = {
   owner: ["view", "comment", "edit", "create", "approve", "invite"],
   marketer: ["view", "comment", "edit", "create"],
@@ -87877,7 +87885,7 @@ async function getFolderWithCount(folder) {
   const [row] = await db.select({ count: sql`count(*)`.mapWith(Number) }).from(campaignsTable).where(eq(campaignsTable.folderId, folder.id));
   return { ...folder, campaignCount: row?.count ?? 0 };
 }
-router7.get("/folders", requireAuth, async (req, res) => {
+router8.get("/folders", requireAuth, async (req, res) => {
   const userId = req.userId;
   const ownedFolders = await db.select().from(foldersTable).where(eq(foldersTable.userId, userId)).orderBy(sql`${foldersTable.createdAt} desc`);
   const ownedIds = new Set(ownedFolders.map((f) => f.id));
@@ -87919,13 +87927,13 @@ router7.get("/folders", requireAuth, async (req, res) => {
   );
   res.json([...ownedWithCounts, ...memberWithCounts]);
 });
-router7.post("/folders", requireAuth, async (req, res) => {
+router8.post("/folders", requireAuth, async (req, res) => {
   const userId = req.userId;
   const body = CreateFolderBody.parse(req.body);
   const [folder] = await db.insert(foldersTable).values({ ...body, userId }).returning();
   res.status(201).json({ ...folder, campaignCount: 0 });
 });
-router7.patch("/folders/:id", requireAuth, async (req, res) => {
+router8.patch("/folders/:id", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { id } = UpdateFolderParams.parse(req.params);
   const body = UpdateFolderBody.parse(req.body);
@@ -87933,7 +87941,7 @@ router7.patch("/folders/:id", requireAuth, async (req, res) => {
   if (!updated) return void res.status(404).json({ error: "Folder not found" });
   res.json(await getFolderWithCount(updated));
 });
-router7.delete("/folders/:id", requireAuth, async (req, res) => {
+router8.delete("/folders/:id", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { id } = DeleteFolderParams.parse(req.params);
   const [folder] = await db.select().from(foldersTable).where(eq(foldersTable.id, id));
@@ -87947,7 +87955,7 @@ router7.delete("/folders/:id", requireAuth, async (req, res) => {
   await db.delete(foldersTable).where(eq(foldersTable.id, id));
   res.status(204).send();
 });
-router7.post("/folders/:id/share", requireAuth, async (req, res) => {
+router8.post("/folders/:id/share", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { id } = ShareFolderLinkParams.parse(req.params);
   const token = randomBytes2(16).toString("hex");
@@ -87955,7 +87963,7 @@ router7.post("/folders/:id/share", requireAuth, async (req, res) => {
   if (!updated) return void res.status(404).json({ error: "Folder not found" });
   res.json(await getFolderWithCount(updated));
 });
-router7.post("/folders/:id/invite", requireAuth, async (req, res) => {
+router8.post("/folders/:id/invite", requireAuth, async (req, res) => {
   const userId = req.userId;
   const folderId = parseInt(req.params["id"], 10);
   if (isNaN(folderId)) return void res.status(400).json({ error: "Invalid folder id" });
@@ -88001,7 +88009,7 @@ router7.post("/folders/:id/invite", requireAuth, async (req, res) => {
     alreadyMember: folderCampaigns.length - invitedCount
   });
 });
-router7.patch("/folders/:id/members/:email", requireAuth, async (req, res) => {
+router8.patch("/folders/:id/members/:email", requireAuth, async (req, res) => {
   const userId = req.userId;
   const folderId = parseInt(req.params["id"], 10);
   const email3 = decodeURIComponent(req.params["email"]);
@@ -88021,7 +88029,7 @@ router7.patch("/folders/:id/members/:email", requireAuth, async (req, res) => {
   }
   res.json({ ok: true });
 });
-router7.delete("/folders/:id/members/:email", requireAuth, async (req, res) => {
+router8.delete("/folders/:id/members/:email", requireAuth, async (req, res) => {
   const userId = req.userId;
   const folderId = parseInt(req.params["id"], 10);
   const email3 = decodeURIComponent(req.params["email"]);
@@ -88038,14 +88046,14 @@ router7.delete("/folders/:id/members/:email", requireAuth, async (req, res) => {
   }
   res.status(204).send();
 });
-router7.get("/folders/:id/info", requireAuth, async (req, res) => {
+router8.get("/folders/:id/info", requireAuth, async (req, res) => {
   const folderId = parseInt(req.params["id"], 10);
   if (isNaN(folderId)) return void res.status(400).json({ error: "Invalid folder id" });
   const [folder] = await db.select({ id: foldersTable.id, title: foldersTable.title }).from(foldersTable).where(eq(foldersTable.id, folderId));
   if (!folder) return void res.status(404).json({ error: "Folder not found" });
   res.json(folder);
 });
-router7.get("/shared/folder/:token", async (req, res) => {
+router8.get("/shared/folder/:token", async (req, res) => {
   const { token } = GetSharedFolderParams.parse(req.params);
   const [folder] = await db.select().from(foldersTable).where(eq(foldersTable.shareToken, token));
   if (!folder) return void res.status(404).json({ error: "Shared folder not found" });
@@ -88056,12 +88064,12 @@ router7.get("/shared/folder/:token", async (req, res) => {
   const campaignsWithCount = campaigns.map((c) => ({ ...c, contentPieceCount: countMap.get(c.id) ?? 0 }));
   res.json({ folder: folderWithCount, campaigns: campaignsWithCount });
 });
-var folders_default = router7;
+var folders_default = router8;
 
 // src/routes/invites.ts
-var import_express13 = __toESM(require_express2(), 1);
-var router8 = (0, import_express13.Router)();
-router8.post("/invites/accept-pending", requireAuth, async (req, res) => {
+var import_express14 = __toESM(require_express2(), 1);
+var router9 = (0, import_express14.Router)();
+router9.post("/invites/accept-pending", requireAuth, async (req, res) => {
   const userId = req.userId;
   let email3;
   try {
@@ -88096,17 +88104,17 @@ router8.post("/invites/accept-pending", requireAuth, async (req, res) => {
   }));
   res.json(accepted);
 });
-var invites_default = router8;
+var invites_default = router9;
 
 // src/routes/admin-fix.ts
-var import_express15 = __toESM(require_express2(), 1);
-var router9 = (0, import_express15.Router)();
+var import_express16 = __toESM(require_express2(), 1);
+var router10 = (0, import_express16.Router)();
 var ALLOWED_EMAILS = ["arnela.ayvazyan@gmail.com"];
 var OWNER_PERMISSIONS = ["view", "comment", "edit", "create", "approve", "invite"];
-router9.get("/admin/fix-ownership", requireAuth, async (req, res) => {
+router10.get("/admin/fix-ownership", requireAuth, async (req, res) => {
   return handleFix(req, res);
 });
-router9.post("/admin/fix-ownership", requireAuth, async (req, res) => {
+router10.post("/admin/fix-ownership", requireAuth, async (req, res) => {
   return handleFix(req, res);
 });
 async function handleFix(req, res) {
@@ -88141,24 +88149,25 @@ async function handleFix(req, res) {
     message: promoted.length > 0 ? `Promoted to owner on campaign(s): ${promoted.join(", ")}` : "No campaigns needed fixing"
   });
 }
-var admin_fix_default = router9;
+var admin_fix_default = router10;
 
 // src/routes/index.ts
-var router10 = (0, import_express17.Router)();
-router10.use(campaigns_default);
-router10.use(campaign_members_default);
-router10.use(content_pieces_default);
-router10.use(import_document_default);
-router10.use(comments_default);
-router10.use(dashboard_default);
-router10.use(folders_default);
-router10.use(invites_default);
-router10.use(admin_fix_default);
-var routes_default = router10;
+var router11 = (0, import_express18.Router)();
+router11.use(health_default);
+router11.use(campaigns_default);
+router11.use(campaign_members_default);
+router11.use(content_pieces_default);
+router11.use(import_document_default);
+router11.use(comments_default);
+router11.use(dashboard_default);
+router11.use(folders_default);
+router11.use(invites_default);
+router11.use(admin_fix_default);
+var routes_default = router11;
 
 // src/app.ts
 var pinoHttp = typeof import_pino_http.default === "function" ? import_pino_http.default : import_pino_http.default.default;
-var app = (0, import_express18.default)();
+var app = (0, import_express19.default)();
 app.use(
   pinoHttp({
     logger,
@@ -88180,8 +88189,8 @@ app.use(
 );
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 app.use((0, import_cors.default)({ credentials: true, origin: true }));
-app.use(import_express18.default.json());
-app.use(import_express18.default.urlencoded({ extended: true }));
+app.use(import_express19.default.json());
+app.use(import_express19.default.urlencoded({ extended: true }));
 app.use(
   clerkMiddleware((req) => ({
     publishableKey: publishableKeyFromHost(
