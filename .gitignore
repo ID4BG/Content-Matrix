@@ -3,6 +3,10 @@
 # compiled output
 dist
 tmp
+
+# Vercel pre-built bundle — committed so Vercel needs no build step
+!artifacts/api-server/dist/
+!artifacts/api-server/dist/*.mjs
 out-tsc
 *.tsbuildinfo
 .expo

@@ -1,9 +1,8 @@
 {
   "framework": null,
-  "buildCommand": "pnpm --filter @workspace/api-server run build",
   "functions": {
     "api/index.js": {
-      "includeFiles": "artifacts/api-server/dist/**"
+      "includeFiles": "artifacts/api-server/dist/*.mjs"
     }
   },
   "rewrites": [
