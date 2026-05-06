@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "dist/index.mjs": {
+      "runtime": "nodejs"
+    }
+  },
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "dist/index.mjs"
+    }
+  ]
+}
