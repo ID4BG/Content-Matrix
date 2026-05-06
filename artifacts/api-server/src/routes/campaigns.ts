@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router } from "express";
 import { db } from "@workspace/db";
 import {
   campaignsTable,
@@ -24,7 +24,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/requireAuth";
 
-const router: IRouter = Router();
+const router = Router();
 
 function withCount(
   campaign: typeof campaignsTable.$inferSelect,
@@ -166,7 +166,7 @@ router.get("/campaigns", requireAuth, async (req, res) => {
     }
   }
 
-  return res.json(
+  res.json(
     campaigns.map((c) => {
       const isCreator = c.userId === userId;
       const memberRole = memberRoleMap.get(c.id);
@@ -180,6 +180,7 @@ router.get("/campaigns", requireAuth, async (req, res) => {
       );
     }),
   );
+  return;
 });
 
 router.post("/campaigns", requireAuth, async (req, res) => {
@@ -198,7 +199,8 @@ router.post("/campaigns", requireAuth, async (req, res) => {
     entityTitle: campaign.title,
   });
 
-  return res.status(201).json(withCount(campaign, 0));
+  res.status(201).json(withCount(campaign, 0));
+  return;
 });
 
 router.get("/campaigns/:id", requireAuth, async (req, res) => {
@@ -211,7 +213,8 @@ router.get("/campaigns/:id", requireAuth, async (req, res) => {
     .where(eq(campaignsTable.id, id));
 
   if (!campaign) {
-    return res.status(404).json({ error: "Campaign not found" });
+    res.status(404).json({ error: "Campaign not found" });
+    return;
   }
 
   const isCreator = campaign.userId === userId;
@@ -220,7 +223,8 @@ router.get("/campaigns/:id", requireAuth, async (req, res) => {
     const memberIds = await getMemberCampaignIds(userId);
 
     if (!memberIds.includes(id)) {
-      return res.status(403).json({ error: "Access denied" });
+      res.status(403).json({ error: "Access denied" });
+      return;
     }
   }
 
@@ -230,7 +234,7 @@ router.get("/campaigns/:id", requireAuth, async (req, res) => {
     ? "owner"
     : (memberRole ?? "team_member");
 
-  return res.json(
+  res.json(
     withCount(
       campaign,
       await getPieceCount(id),
@@ -238,6 +242,7 @@ router.get("/campaigns/:id", requireAuth, async (req, res) => {
       currentUserRole,
     ),
   );
+  return;
 });
 
 router.patch("/campaigns/:id", requireAuth, async (req, res) => {
@@ -252,10 +257,12 @@ router.patch("/campaigns/:id", requireAuth, async (req, res) => {
     .returning();
 
   if (!updated) {
-    return res.status(404).json({ error: "Campaign not found" });
+    res.status(404).json({ error: "Campaign not found" });
+    return;
   }
 
-  return res.json(withCount(updated, await getPieceCount(id)));
+  res.json(withCount(updated, await getPieceCount(id)));
+  return;
 });
 
 router.delete("/campaigns/:id", requireAuth, async (req, res) => {
@@ -268,7 +275,8 @@ router.delete("/campaigns/:id", requireAuth, async (req, res) => {
     .where(eq(campaignsTable.id, id));
 
   if (!campaign) {
-    return res.status(404).json({ error: "Campaign not found" });
+    res.status(404).json({ error: "Campaign not found" });
+    return;
   }
 
   const isCreator = campaign.userId === userId;
@@ -277,15 +285,17 @@ router.delete("/campaigns/:id", requireAuth, async (req, res) => {
     const role = await getMemberRole(userId, id);
 
     if (role !== "owner") {
-      return res
+      res
         .status(403)
         .json({ error: "You do not have permission to delete this campaign" });
+      return;
     }
   }
 
   await db.delete(campaignsTable).where(eq(campaignsTable.id, id));
 
-  return res.status(204).send();
+  res.status(204).send();
+  return;
 });
 
 router.post("/campaigns/:id/approve", requireAuth, async (req, res) => {
@@ -298,7 +308,8 @@ router.post("/campaigns/:id/approve", requireAuth, async (req, res) => {
     .where(eq(campaignsTable.id, id));
 
   if (!existing) {
-    return res.status(404).json({ error: "Campaign not found" });
+    res.status(404).json({ error: "Campaign not found" });
+    return;
   }
 
   const isCreator = existing.userId === userId;
@@ -307,9 +318,8 @@ router.post("/campaigns/:id/approve", requireAuth, async (req, res) => {
     const role = await getMemberRole(userId, id);
 
     if (role !== "owner") {
-      return res
-        .status(403)
-        .json({ error: "Only owners can approve campaigns" });
+      res.status(403).json({ error: "Only owners can approve campaigns" });
+      return;
     }
   }
 
@@ -324,7 +334,8 @@ router.post("/campaigns/:id/approve", requireAuth, async (req, res) => {
     .returning();
 
   if (!updated) {
-    return res.status(404).json({ error: "Campaign not found" });
+    res.status(404).json({ error: "Campaign not found" });
+    return;
   }
 
   await db.insert(activityTable).values({
@@ -334,7 +345,8 @@ router.post("/campaigns/:id/approve", requireAuth, async (req, res) => {
     entityTitle: updated.title,
   });
 
-  return res.json(withCount(updated, await getPieceCount(id)));
+  res.json(withCount(updated, await getPieceCount(id)));
+  return;
 });
 
 router.post("/campaigns/:id/disapprove", requireAuth, async (req, res) => {
@@ -347,7 +359,8 @@ router.post("/campaigns/:id/disapprove", requireAuth, async (req, res) => {
     .where(eq(campaignsTable.id, id));
 
   if (!existing) {
-    return res.status(404).json({ error: "Campaign not found" });
+    res.status(404).json({ error: "Campaign not found" });
+    return;
   }
 
   const isCreator = existing.userId === userId;
@@ -356,9 +369,8 @@ router.post("/campaigns/:id/disapprove", requireAuth, async (req, res) => {
     const role = await getMemberRole(userId, id);
 
     if (role !== "owner") {
-      return res
-        .status(403)
-        .json({ error: "Only owners can disapprove campaigns" });
+      res.status(403).json({ error: "Only owners can disapprove campaigns" });
+      return;
     }
   }
 
@@ -373,10 +385,12 @@ router.post("/campaigns/:id/disapprove", requireAuth, async (req, res) => {
     .returning();
 
   if (!updated) {
-    return res.status(404).json({ error: "Campaign not found" });
+    res.status(404).json({ error: "Campaign not found" });
+    return;
   }
 
-  return res.json(withCount(updated, await getPieceCount(id)));
+  res.json(withCount(updated, await getPieceCount(id)));
+  return;
 });
 
 router.post("/campaigns/:id/share", requireAuth, async (req, res) => {
@@ -389,7 +403,8 @@ router.post("/campaigns/:id/share", requireAuth, async (req, res) => {
     .where(eq(campaignsTable.id, id));
 
   if (!existing) {
-    return res.status(404).json({ error: "Campaign not found" });
+    res.status(404).json({ error: "Campaign not found" });
+    return;
   }
 
   const isCreator = existing.userId === userId;
@@ -398,7 +413,8 @@ router.post("/campaigns/:id/share", requireAuth, async (req, res) => {
     const role = await getMemberRole(userId, id);
 
     if (role !== "owner") {
-      return res.status(403).json({ error: "Only owners can share campaigns" });
+      res.status(403).json({ error: "Only owners can share campaigns" });
+      return;
     }
   }
 
@@ -414,10 +430,12 @@ router.post("/campaigns/:id/share", requireAuth, async (req, res) => {
     .returning();
 
   if (!updated) {
-    return res.status(404).json({ error: "Campaign not found" });
+    res.status(404).json({ error: "Campaign not found" });
+    return;
   }
 
-  return res.json(withCount(updated, await getPieceCount(id)));
+  res.json(withCount(updated, await getPieceCount(id)));
+  return;
 });
 
 router.get("/shared/campaign/:token", async (req, res) => {
@@ -429,7 +447,8 @@ router.get("/shared/campaign/:token", async (req, res) => {
     .where(eq(campaignsTable.shareToken, token));
 
   if (!campaign) {
-    return res.status(404).json({ error: "Shared campaign not found" });
+    res.status(404).json({ error: "Shared campaign not found" });
+    return;
   }
 
   const pieces = await db
@@ -445,10 +464,11 @@ router.get("/shared/campaign/:token", async (req, res) => {
 
   const count = await getPieceCount(campaign.id);
 
-  return res.json({
+  res.json({
     campaign: withCount(campaign, count, false),
     pieces,
   });
+  return;
 });
 
 router.patch("/campaigns/:id/channels", requireAuth, async (req, res) => {
@@ -462,7 +482,8 @@ router.patch("/campaigns/:id/channels", requireAuth, async (req, res) => {
     .where(eq(campaignsTable.id, id));
 
   if (!existing) {
-    return res.status(404).json({ error: "Campaign not found" });
+    res.status(404).json({ error: "Campaign not found" });
+    return;
   }
 
   const isCreator = existing.userId === userId;
@@ -471,7 +492,8 @@ router.patch("/campaigns/:id/channels", requireAuth, async (req, res) => {
     const role = await getMemberRole(userId, id);
 
     if (role !== "owner") {
-      return res.status(403).json({ error: "Only owners can update channels" });
+      res.status(403).json({ error: "Only owners can update channels" });
+      return;
     }
   }
 
@@ -485,10 +507,12 @@ router.patch("/campaigns/:id/channels", requireAuth, async (req, res) => {
     .returning();
 
   if (!updated) {
-    return res.status(404).json({ error: "Campaign not found" });
+    res.status(404).json({ error: "Campaign not found" });
+    return;
   }
 
-  return res.json(withCount(updated, await getPieceCount(id)));
+  res.json(withCount(updated, await getPieceCount(id)));
+  return;
 });
 
 export default router;
