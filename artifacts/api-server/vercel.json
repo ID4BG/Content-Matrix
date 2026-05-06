@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
+  "installCommand": "npm install -g pnpm@10 && cd ../.. && pnpm install --no-frozen-lockfile",
   "buildCommand": "pnpm run build",
   "builds": [
     {
