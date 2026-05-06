@@ -1,13 +1,10 @@
 {
-  "functions": {
-    "dist/index.mjs": {
-      "runtime": "nodejs"
-    }
-  },
-  "routes": [
+  "version": 2,
+  "buildCommand": "pnpm run build",
+  "rewrites": [
     {
-      "src": "/(.*)",
-      "dest": "dist/index.mjs"
+      "source": "/(.*)",
+      "destination": "/dist/index.mjs"
     }
   ]
 }
