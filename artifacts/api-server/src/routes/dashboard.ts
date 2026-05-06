@@ -93,7 +93,7 @@ router.get("/dashboard/activity", requireAuth, async (req, res) => {
 
   const allIds = await getAllAccessibleCampaignIds(userId);
 
-  if (!allIds.length) return res.json([]);
+  if (!allIds.length) return void res.json([]);
 
   const activity = await db
     .select()

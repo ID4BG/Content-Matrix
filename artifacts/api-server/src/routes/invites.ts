@@ -15,10 +15,10 @@ router.post("/invites/accept-pending", requireAuth, async (req, res) => {
     const clerkUser = await clerkClient.users.getUser(userId);
     email = clerkUser.emailAddresses?.[0]?.emailAddress;
   } catch {
-    return res.status(500).json({ error: "Could not resolve user email" });
+    return void res.status(500).json({ error: "Could not resolve user email" });
   }
 
-  if (!email) return res.json([]);
+  if (!email) return void res.json([]);
 
   const pending = await db
     .select({
@@ -36,7 +36,7 @@ router.post("/invites/accept-pending", requireAuth, async (req, res) => {
       )
     );
 
-  if (!pending.length) return res.json([]);
+  if (!pending.length) return void res.json([]);
 
   const memberIds = pending.map(p => p.memberId);
 

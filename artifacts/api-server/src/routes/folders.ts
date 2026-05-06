@@ -151,7 +151,7 @@ router.patch("/folders/:id", requireAuth, async (req, res) => {
     .where(and(eq(foldersTable.id, id), eq(foldersTable.userId, userId)))
     .returning();
 
-  if (!updated) return res.status(404).json({ error: "Folder not found" });
+  if (!updated) return void res.status(404).json({ error: "Folder not found" });
   res.json(await getFolderWithCount(updated));
 });
 
@@ -160,7 +160,7 @@ router.delete("/folders/:id", requireAuth, async (req, res) => {
   const { id } = DeleteFolderParams.parse(req.params);
 
   const [folder] = await db.select().from(foldersTable).where(eq(foldersTable.id, id));
-  if (!folder) return res.status(404).json({ error: "Folder not found" });
+  if (!folder) return void res.status(404).json({ error: "Folder not found" });
 
   const isCreator = folder.userId === userId;
   if (!isCreator) {
@@ -170,7 +170,7 @@ router.delete("/folders/:id", requireAuth, async (req, res) => {
       .where(eq(campaignsTable.folderId, id))
       .then(rows => rows.map(r => r.id));
     const role = await getUserRoleInFolder(userId, folderCampaignIds);
-    if (role !== "owner") return res.status(403).json({ error: "You do not have permission to delete this folder" });
+    if (role !== "owner") return void res.status(403).json({ error: "You do not have permission to delete this folder" });
   }
 
   await db.delete(foldersTable).where(eq(foldersTable.id, id));
@@ -189,27 +189,27 @@ router.post("/folders/:id/share", requireAuth, async (req, res) => {
     .where(and(eq(foldersTable.id, id), eq(foldersTable.userId, userId)))
     .returning();
 
-  if (!updated) return res.status(404).json({ error: "Folder not found" });
+  if (!updated) return void res.status(404).json({ error: "Folder not found" });
   res.json(await getFolderWithCount(updated));
 });
 
 router.post("/folders/:id/invite", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
-  const folderId = parseInt(req.params.id, 10);
-  if (isNaN(folderId)) return res.status(400).json({ error: "Invalid folder id" });
+  const folderId = parseInt(req.params['id'] as string, 10);
+  if (isNaN(folderId)) return void res.status(400).json({ error: "Invalid folder id" });
 
   const [folder] = await db
     .select()
     .from(foldersTable)
     .where(and(eq(foldersTable.id, folderId), eq(foldersTable.userId, userId)));
 
-  if (!folder) return res.status(404).json({ error: "Folder not found" });
+  if (!folder) return void res.status(404).json({ error: "Folder not found" });
 
   const { email, firstName = "", lastName = "", role = "team_member" } = req.body as {
     email?: string; firstName?: string; lastName?: string; role?: string;
   };
 
-  if (!email) return res.status(400).json({ error: "email is required" });
+  if (!email) return void res.status(400).json({ error: "email is required" });
 
   const permissions = DEFAULT_PERMISSIONS[role] ?? ["view"];
 
@@ -265,18 +265,18 @@ router.post("/folders/:id/invite", requireAuth, async (req, res) => {
 // Update a member's role across all campaigns in the folder
 router.patch("/folders/:id/members/:email", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
-  const folderId = parseInt(req.params.id, 10);
-  const email = decodeURIComponent(req.params.email);
+  const folderId = parseInt(req.params['id'] as string, 10);
+  const email = decodeURIComponent(req.params['email'] as string);
   const { role } = req.body as { role?: string };
 
-  if (!role) return res.status(400).json({ error: "role is required" });
+  if (!role) return void res.status(400).json({ error: "role is required" });
 
   const [folder] = await db
     .select()
     .from(foldersTable)
     .where(and(eq(foldersTable.id, folderId), eq(foldersTable.userId, userId)));
 
-  if (!folder) return res.status(404).json({ error: "Folder not found" });
+  if (!folder) return void res.status(404).json({ error: "Folder not found" });
 
   const permissions = DEFAULT_PERMISSIONS[role] ?? ["view"];
   const folderCampaigns = await db
@@ -303,15 +303,15 @@ router.patch("/folders/:id/members/:email", requireAuth, async (req, res) => {
 // Remove a member from all campaigns in the folder
 router.delete("/folders/:id/members/:email", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
-  const folderId = parseInt(req.params.id, 10);
-  const email = decodeURIComponent(req.params.email);
+  const folderId = parseInt(req.params['id'] as string, 10);
+  const email = decodeURIComponent(req.params['email'] as string);
 
   const [folder] = await db
     .select()
     .from(foldersTable)
     .where(and(eq(foldersTable.id, folderId), eq(foldersTable.userId, userId)));
 
-  if (!folder) return res.status(404).json({ error: "Folder not found" });
+  if (!folder) return void res.status(404).json({ error: "Folder not found" });
 
   const folderCampaigns = await db
     .select()
@@ -333,15 +333,15 @@ router.delete("/folders/:id/members/:email", requireAuth, async (req, res) => {
 });
 
 router.get("/folders/:id/info", requireAuth, async (req, res) => {
-  const folderId = parseInt(req.params.id, 10);
-  if (isNaN(folderId)) return res.status(400).json({ error: "Invalid folder id" });
+  const folderId = parseInt(req.params['id'] as string, 10);
+  if (isNaN(folderId)) return void res.status(400).json({ error: "Invalid folder id" });
 
   const [folder] = await db
     .select({ id: foldersTable.id, title: foldersTable.title })
     .from(foldersTable)
     .where(eq(foldersTable.id, folderId));
 
-  if (!folder) return res.status(404).json({ error: "Folder not found" });
+  if (!folder) return void res.status(404).json({ error: "Folder not found" });
   res.json(folder);
 });
 
@@ -353,7 +353,7 @@ router.get("/shared/folder/:token", async (req, res) => {
     .from(foldersTable)
     .where(eq(foldersTable.shareToken, token));
 
-  if (!folder) return res.status(404).json({ error: "Shared folder not found" });
+  if (!folder) return void res.status(404).json({ error: "Shared folder not found" });
 
   const campaigns = await db
     .select()

@@ -125,22 +125,22 @@ router.post(
   async (req, res) => {
     try {
       const userId = (req as any).userId;
-      if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+      if (!req.file) return void res.status(400).json({ error: "No file uploaded" });
 
       const campaignId = parseInt(req.body.campaignId, 10);
       const channel = req.body.channel as string;
-      if (!campaignId || !channel) return res.status(400).json({ error: "campaignId and channel are required" });
+      if (!campaignId || !channel) return void res.status(400).json({ error: "campaignId and channel are required" });
 
       const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, campaignId));
-      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
-      if (campaign.userId !== userId) return res.status(403).json({ error: "Only the campaign owner can import documents" });
+      if (!campaign) return void res.status(404).json({ error: "Campaign not found" });
+      if (campaign.userId !== userId) return void res.status(403).json({ error: "Only the campaign owner can import documents" });
 
       // Extract text for section parsing
       const textResult = await mammoth.extractRawText({ buffer: req.file.buffer });
       const parsed = parseDocumentText(textResult.value);
 
       if (parsed.length === 0) {
-        return res.status(422).json({
+        return void res.status(422).json({
           error: "No sections found. Make sure your document has headings like 'Post 1:', 'Video 2:', 'Reel 3:', 'Carousel 4:', etc.",
         });
       }
@@ -199,15 +199,15 @@ router.post(
   async (req, res) => {
     try {
       const userId = (req as any).userId;
-      if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+      if (!req.file) return void res.status(400).json({ error: "No file uploaded" });
 
       const campaignId = parseInt(req.body.campaignId, 10);
       const channel = req.body.channel as string;
-      if (!campaignId || !channel) return res.status(400).json({ error: "campaignId and channel are required" });
+      if (!campaignId || !channel) return void res.status(400).json({ error: "campaignId and channel are required" });
 
       const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, campaignId));
-      if (!campaign) return res.status(404).json({ error: "Campaign not found" });
-      if (campaign.userId !== userId) return res.status(403).json({ error: "Only the campaign owner can attach documents" });
+      if (!campaign) return void res.status(404).json({ error: "Campaign not found" });
+      if (campaign.userId !== userId) return void res.status(403).json({ error: "Only the campaign owner can attach documents" });
 
       const htmlResult = await mammoth.convertToHtml({ buffer: req.file.buffer });
       const fileName = req.file.originalname || "document.docx";

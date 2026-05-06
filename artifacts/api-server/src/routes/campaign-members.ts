@@ -83,7 +83,7 @@ router.patch("/campaigns/:id/members/:memberId", requireAuth, async (req, res) =
     .set(updateData)
     .where(eq(campaignMembersTable.id, memberId))
     .returning();
-  if (!updated) return res.status(404).json({ error: "Member not found" });
+  if (!updated) return void res.status(404).json({ error: "Member not found" });
   res.json(updated);
 });
 
