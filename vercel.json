@@ -1,0 +1,19 @@
+{
+  "version": 2,
+  "buildCommand": "pnpm --filter @workspace/api-server run build",
+  "builds": [
+    {
+      "src": "artifacts/api-server/vercel-entry.js",
+      "use": "@vercel/node",
+      "config": {
+        "includeFiles": "artifacts/api-server/dist/**"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "artifacts/api-server/vercel-entry.js"
+    }
+  ]
+}
