@@ -9,7 +9,6 @@ router.get("/healthz", (_req, res) => {
 });
 
 // Debug endpoint — tells the caller their Clerk userId and email
-// Useful for diagnosing user ID mismatches between environments
 router.get("/whoami", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
   try {
@@ -18,6 +17,17 @@ router.get("/whoami", requireAuth, async (req, res) => {
     return res.json({ userId, email });
   } catch {
     return res.json({ userId, email: null });
+  }
+});
+
+// Debug endpoint — shows which database this API is connected to (host only, no password)
+router.get("/db-info", async (_req, res) => {
+  const url = process.env.DATABASE_URL ?? "";
+  try {
+    const parsed = new URL(url);
+    return res.json({ host: parsed.hostname, database: parsed.pathname.replace("/", ""), port: parsed.port || "5432" });
+  } catch {
+    return res.json({ host: "PARSE_ERROR", raw_length: url.length });
   }
 });
 

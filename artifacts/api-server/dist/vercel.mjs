@@ -63665,6 +63665,15 @@ router.get("/whoami", requireAuth, async (req, res) => {
     return res.json({ userId, email: null });
   }
 });
+router.get("/db-info", async (_req, res) => {
+  const url2 = process.env.DATABASE_URL ?? "";
+  try {
+    const parsed = new URL(url2);
+    return res.json({ host: parsed.hostname, database: parsed.pathname.replace("/", ""), port: parsed.port || "5432" });
+  } catch {
+    return res.json({ host: "PARSE_ERROR", raw_length: url2.length });
+  }
+});
 var health_default = router;
 
 // src/routes/campaigns.ts
