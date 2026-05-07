@@ -5,9 +5,7 @@ import * as schema from "./schema";
 const { Pool } = pg;
 
 if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
+  throw new Error("DATABASE_URL must be set.");
 }
 
 export const pool = new Pool({
@@ -16,6 +14,10 @@ export const pool = new Pool({
     rejectUnauthorized: false,
   },
 });
-export const db = drizzle(pool, { schema });
 
+pool.on("error", (err) => {
+  console.error("PG POOL ERROR:", err);
+});
+
+export const db = drizzle(pool, { schema });
 export * from "./schema";
