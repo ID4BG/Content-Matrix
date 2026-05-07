@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://content-matrix-api-server.vercel.app/api/:path*"
+      "destination": "https://content-matrix-api-server-id4bs-projects.vercel.app/api/:path*"
     },
     {
       "source": "/:path*",
