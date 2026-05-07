@@ -71,23 +71,29 @@ function can(role: string | null, permission: string): boolean {
 }
 
 router.get("/content-pieces", requireAuth, async (req, res) => {
-  const params = ListContentPiecesQueryParams.parse(req.query);
+  try {
+    const params = ListContentPiecesQueryParams.parse(req.query);
 
-  const conditions: ReturnType<typeof eq>[] = [];
-  if (params.campaignId) conditions.push(eq(contentPiecesTable.campaignId, params.campaignId));
-  if (params.channel) conditions.push(eq(contentPiecesTable.channel, params.channel as any));
+    const conditions: ReturnType<typeof eq>[] = [];
+    if (params.campaignId) conditions.push(eq(contentPiecesTable.campaignId, params.campaignId));
+    if (params.channel) conditions.push(eq(contentPiecesTable.channel, params.channel as any));
 
-  const pieces = conditions.length
-    ? await db.select().from(contentPiecesTable).where(and(...conditions)).orderBy(sql`${contentPiecesTable.sortOrder} asc, ${contentPiecesTable.id} asc`)
-    : await db.select().from(contentPiecesTable).orderBy(sql`${contentPiecesTable.createdAt} desc`);
+    const pieces = conditions.length
+      ? await db.select().from(contentPiecesTable).where(and(...conditions)).orderBy(sql`${contentPiecesTable.sortOrder} asc, ${contentPiecesTable.id} asc`)
+      : await db.select().from(contentPiecesTable).orderBy(sql`${contentPiecesTable.createdAt} desc`);
 
-  const commentCounts = await db
-    .select({ contentPieceId: commentsTable.contentPieceId, count: sql<number>`count(*)`.mapWith(Number) })
-    .from(commentsTable)
-    .groupBy(commentsTable.contentPieceId);
+    const commentCounts = await db
+      .select({ contentPieceId: commentsTable.contentPieceId, count: sql<number>`count(*)`.mapWith(Number) })
+      .from(commentsTable)
+      .groupBy(commentsTable.contentPieceId);
 
-  const countMap = new Map(commentCounts.map((c) => [c.contentPieceId, c.count]));
-  res.json(pieces.map((p) => ({ ...p, commentCount: countMap.get(p.id) ?? 0 })));
+    const countMap = new Map(commentCounts.map((c) => [c.contentPieceId, c.count]));
+    res.json(pieces.map((p) => ({ ...p, commentCount: countMap.get(p.id) ?? 0 })));
+  } catch (err) {
+    console.error("GET_CONTENT_PIECES_ERROR", err);
+    console.error("FULL_ERROR_JSON", JSON.stringify(err, Object.getOwnPropertyNames(err as object), 2));
+    res.status(500).json({ error: "Failed to load content pieces" });
+  }
 });
 
 router.post("/content-pieces/reorder", requireAuth, async (req, res) => {

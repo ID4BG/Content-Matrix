@@ -207,41 +207,47 @@ router.get("/campaigns/:id", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
   const { id } = GetCampaignParams.parse(req.params);
 
-  const [campaign] = await db
-    .select()
-    .from(campaignsTable)
-    .where(eq(campaignsTable.id, id));
+  try {
+    const [campaign] = await db
+      .select()
+      .from(campaignsTable)
+      .where(eq(campaignsTable.id, id));
 
-  if (!campaign) {
-    res.status(404).json({ error: "Campaign not found" });
-    return;
-  }
-
-  const isCreator = campaign.userId === userId;
-
-  if (!isCreator) {
-    const memberIds = await getMemberCampaignIds(userId);
-
-    if (!memberIds.includes(id)) {
-      res.status(403).json({ error: "Access denied" });
+    if (!campaign) {
+      res.status(404).json({ error: "Campaign not found" });
       return;
     }
+
+    const isCreator = campaign.userId === userId;
+
+    if (!isCreator) {
+      const memberIds = await getMemberCampaignIds(userId);
+
+      if (!memberIds.includes(id)) {
+        res.status(403).json({ error: "Access denied" });
+        return;
+      }
+    }
+
+    const memberRole = isCreator ? null : await getMemberRole(userId, id);
+    const effectiveOwner = isCreator || memberRole === "owner";
+    const currentUserRole = effectiveOwner
+      ? "owner"
+      : (memberRole ?? "team_member");
+
+    res.json(
+      withCount(
+        campaign,
+        await getPieceCount(id),
+        effectiveOwner,
+        currentUserRole,
+      ),
+    );
+  } catch (err) {
+    console.error("GET_CAMPAIGN_ERROR", err);
+    console.error("FULL_ERROR_JSON", JSON.stringify(err, Object.getOwnPropertyNames(err as object), 2));
+    res.status(500).json({ error: "Failed to load campaign" });
   }
-
-  const memberRole = isCreator ? null : await getMemberRole(userId, id);
-  const effectiveOwner = isCreator || memberRole === "owner";
-  const currentUserRole = effectiveOwner
-    ? "owner"
-    : (memberRole ?? "team_member");
-
-  res.json(
-    withCount(
-      campaign,
-      await getPieceCount(id),
-      effectiveOwner,
-      currentUserRole,
-    ),
-  );
   return;
 });
 

@@ -99,18 +99,24 @@ router.get("/dashboard/summary", requireAuth, async (req, res) => {
 router.get("/dashboard/activity", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
 
-  const allIds = await getAllAccessibleCampaignIds(userId);
+  try {
+    const allIds = await getAllAccessibleCampaignIds(userId);
 
-  if (!allIds.length) return void res.json([]);
+    if (!allIds.length) return void res.json([]);
 
-  const activity = await db
-    .select()
-    .from(activityTable)
-    .where(inArray(activityTable.entityId, allIds))
-    .orderBy(sql`${activityTable.createdAt} desc`)
-    .limit(20);
+    const activity = await db
+      .select()
+      .from(activityTable)
+      .where(inArray(activityTable.entityId, allIds))
+      .orderBy(sql`${activityTable.createdAt} desc`)
+      .limit(20);
 
-  res.json(activity);
+    res.json(activity);
+  } catch (err) {
+    console.error("DASHBOARD_ACTIVITY_ERROR", err);
+    console.error("FULL_ERROR_JSON", JSON.stringify(err, Object.getOwnPropertyNames(err as object), 2));
+    res.status(500).json({ error: "Failed to load activity" });
+  }
 });
 
 export default router;

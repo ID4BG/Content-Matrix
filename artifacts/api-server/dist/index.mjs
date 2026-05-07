@@ -82169,7 +82169,12 @@ var pool = new Pool3({
   connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false
-  }
+  },
+  max: 3,
+  idleTimeoutMillis: 3e4,
+  connectionTimeoutMillis: 8e3,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 1e4
 });
 pool.on("error", (err) => {
   console.error("PG POOL ERROR:", err);
@@ -87002,30 +87007,36 @@ router2.post("/campaigns", requireAuth, async (req, res) => {
 router2.get("/campaigns/:id", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { id } = GetCampaignParams.parse(req.params);
-  const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
-  if (!campaign) {
-    res.status(404).json({ error: "Campaign not found" });
-    return;
-  }
-  const isCreator = campaign.userId === userId;
-  if (!isCreator) {
-    const memberIds = await getMemberCampaignIds(userId);
-    if (!memberIds.includes(id)) {
-      res.status(403).json({ error: "Access denied" });
+  try {
+    const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
+    if (!campaign) {
+      res.status(404).json({ error: "Campaign not found" });
       return;
     }
+    const isCreator = campaign.userId === userId;
+    if (!isCreator) {
+      const memberIds = await getMemberCampaignIds(userId);
+      if (!memberIds.includes(id)) {
+        res.status(403).json({ error: "Access denied" });
+        return;
+      }
+    }
+    const memberRole = isCreator ? null : await getMemberRole(userId, id);
+    const effectiveOwner = isCreator || memberRole === "owner";
+    const currentUserRole = effectiveOwner ? "owner" : memberRole ?? "team_member";
+    res.json(
+      withCount(
+        campaign,
+        await getPieceCount(id),
+        effectiveOwner,
+        currentUserRole
+      )
+    );
+  } catch (err) {
+    console.error("GET_CAMPAIGN_ERROR", err);
+    console.error("FULL_ERROR_JSON", JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
+    res.status(500).json({ error: "Failed to load campaign" });
   }
-  const memberRole = isCreator ? null : await getMemberRole(userId, id);
-  const effectiveOwner = isCreator || memberRole === "owner";
-  const currentUserRole = effectiveOwner ? "owner" : memberRole ?? "team_member";
-  res.json(
-    withCount(
-      campaign,
-      await getPieceCount(id),
-      effectiveOwner,
-      currentUserRole
-    )
-  );
   return;
 });
 router2.patch("/campaigns/:id", requireAuth, async (req, res) => {
@@ -87398,14 +87409,20 @@ function can(role, permission) {
   return (ROLE_PERMISSIONS[role] ?? []).includes(permission);
 }
 router4.get("/content-pieces", requireAuth, async (req, res) => {
-  const params = ListContentPiecesQueryParams.parse(req.query);
-  const conditions = [];
-  if (params.campaignId) conditions.push(eq(contentPiecesTable.campaignId, params.campaignId));
-  if (params.channel) conditions.push(eq(contentPiecesTable.channel, params.channel));
-  const pieces = conditions.length ? await db.select().from(contentPiecesTable).where(and(...conditions)).orderBy(sql`${contentPiecesTable.sortOrder} asc, ${contentPiecesTable.id} asc`) : await db.select().from(contentPiecesTable).orderBy(sql`${contentPiecesTable.createdAt} desc`);
-  const commentCounts = await db.select({ contentPieceId: commentsTable.contentPieceId, count: sql`count(*)`.mapWith(Number) }).from(commentsTable).groupBy(commentsTable.contentPieceId);
-  const countMap = new Map(commentCounts.map((c) => [c.contentPieceId, c.count]));
-  res.json(pieces.map((p) => ({ ...p, commentCount: countMap.get(p.id) ?? 0 })));
+  try {
+    const params = ListContentPiecesQueryParams.parse(req.query);
+    const conditions = [];
+    if (params.campaignId) conditions.push(eq(contentPiecesTable.campaignId, params.campaignId));
+    if (params.channel) conditions.push(eq(contentPiecesTable.channel, params.channel));
+    const pieces = conditions.length ? await db.select().from(contentPiecesTable).where(and(...conditions)).orderBy(sql`${contentPiecesTable.sortOrder} asc, ${contentPiecesTable.id} asc`) : await db.select().from(contentPiecesTable).orderBy(sql`${contentPiecesTable.createdAt} desc`);
+    const commentCounts = await db.select({ contentPieceId: commentsTable.contentPieceId, count: sql`count(*)`.mapWith(Number) }).from(commentsTable).groupBy(commentsTable.contentPieceId);
+    const countMap = new Map(commentCounts.map((c) => [c.contentPieceId, c.count]));
+    res.json(pieces.map((p) => ({ ...p, commentCount: countMap.get(p.id) ?? 0 })));
+  } catch (err) {
+    console.error("GET_CONTENT_PIECES_ERROR", err);
+    console.error("FULL_ERROR_JSON", JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
+    res.status(500).json({ error: "Failed to load content pieces" });
+  }
 });
 router4.post("/content-pieces/reorder", requireAuth, async (req, res) => {
   const userId = req.userId;
@@ -87869,10 +87886,16 @@ router7.get("/dashboard/summary", requireAuth, async (req, res) => {
 });
 router7.get("/dashboard/activity", requireAuth, async (req, res) => {
   const userId = req.userId;
-  const allIds = await getAllAccessibleCampaignIds(userId);
-  if (!allIds.length) return void res.json([]);
-  const activity = await db.select().from(activityTable).where(inArray(activityTable.entityId, allIds)).orderBy(sql`${activityTable.createdAt} desc`).limit(20);
-  res.json(activity);
+  try {
+    const allIds = await getAllAccessibleCampaignIds(userId);
+    if (!allIds.length) return void res.json([]);
+    const activity = await db.select().from(activityTable).where(inArray(activityTable.entityId, allIds)).orderBy(sql`${activityTable.createdAt} desc`).limit(20);
+    res.json(activity);
+  } catch (err) {
+    console.error("DASHBOARD_ACTIVITY_ERROR", err);
+    console.error("FULL_ERROR_JSON", JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
+    res.status(500).json({ error: "Failed to load activity" });
+  }
 });
 var dashboard_default = router7;
 
