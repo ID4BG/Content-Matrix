@@ -1074,7 +1074,7 @@ components:
           type: integer
         type:
           type: string
-          enum: [campaign_created, piece_uploaded, piece_approved, comment_added, campaign_approved, folder_created]
+          enum: [campaign_created, piece_uploaded, piece_approved, piece_submitted_for_review, comment_added, campaign_approved, folder_created]
         description:
           type: string
         entityId:

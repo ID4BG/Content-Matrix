@@ -63650,35 +63650,6 @@ function requireAuth(req, res, next) {
   next();
 }
 
-// src/routes/health.ts
-var router = import_express2.default.Router();
-router.get("/healthz", (_req, res) => {
-  return res.status(200).json({ status: "ok" });
-});
-router.get("/whoami", requireAuth, async (req, res) => {
-  const userId = req.userId;
-  try {
-    const user = await clerkClient.users.getUser(userId);
-    const email3 = user.emailAddresses?.[0]?.emailAddress ?? null;
-    return res.json({ userId, email: email3 });
-  } catch {
-    return res.json({ userId, email: null });
-  }
-});
-router.get("/db-info", async (_req, res) => {
-  const url2 = process.env.DATABASE_URL ?? "";
-  try {
-    const parsed = new URL(url2);
-    return res.json({ host: parsed.hostname, database: parsed.pathname.replace("/", ""), port: parsed.port || "5432" });
-  } catch {
-    return res.json({ host: "PARSE_ERROR", raw_length: url2.length });
-  }
-});
-var health_default = router;
-
-// src/routes/campaigns.ts
-var import_express4 = __toESM(require_express2(), 1);
-
 // ../../node_modules/.pnpm/pg@8.20.0/node_modules/pg/esm/index.mjs
 var import_lib = __toESM(require_lib5(), 1);
 var Client2 = import_lib.default.Client;
@@ -82157,7 +82128,8 @@ var activityTypeEnum = pgEnum("activity_type", [
   "piece_approved",
   "piece_submitted_for_review",
   "comment_added",
-  "campaign_approved"
+  "campaign_approved",
+  "folder_created"
 ]);
 var activityTable = pgTable("activity", {
   id: serial("id").primaryKey(),
@@ -82202,19 +82174,61 @@ var pool = new Pool3({
   connectionString: process.env.DATABASE_URL,
   ssl: {
     rejectUnauthorized: false
-  },
-  max: 3,
-  idleTimeoutMillis: 3e4,
-  connectionTimeoutMillis: 8e3,
-  keepAlive: true,
-  keepAliveInitialDelayMillis: 1e4
+  }
 });
 pool.on("error", (err) => {
   console.error("PG POOL ERROR:", err);
 });
 var db = drizzle(pool, { schema: schema_exports });
 
+// src/routes/health.ts
+var router = import_express2.default.Router();
+router.get("/healthz", (_req, res) => {
+  return res.status(200).json({ status: "ok" });
+});
+router.get("/whoami", requireAuth, async (req, res) => {
+  const userId = req.userId;
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    const email3 = user.emailAddresses?.[0]?.emailAddress ?? null;
+    return res.json({ userId, email: email3 });
+  } catch {
+    return res.json({ userId, email: null });
+  }
+});
+router.get("/db-info", async (_req, res) => {
+  const url2 = process.env.DATABASE_URL ?? "";
+  let hostInfo = { host: "PARSE_ERROR", database: "", port: "" };
+  try {
+    const parsed = new URL(url2);
+    hostInfo = { host: parsed.hostname, database: parsed.pathname.replace("/", ""), port: parsed.port || "5432" };
+  } catch {
+  }
+  try {
+    const [campaigns, folders, activityCount] = await Promise.all([
+      db.select({ id: campaignsTable.id, title: campaignsTable.title, userId: campaignsTable.userId }).from(campaignsTable),
+      db.select({ id: foldersTable.id, title: foldersTable.title }).from(foldersTable),
+      db.select({ count: sql`count(*)`.mapWith(Number) }).from(activityTable)
+    ]);
+    const tablesResult = await db.execute(
+      sql`SELECT tablename FROM pg_tables WHERE schemaname = 'public' ORDER BY tablename`
+    );
+    const tables = tablesResult.rows.map((r) => r.tablename);
+    return res.json({
+      ...hostInfo,
+      tables,
+      campaigns: campaigns.map((c) => ({ id: c.id, title: c.title, userId: c.userId.slice(0, 20) + "..." })),
+      folders: folders.map((f) => ({ id: f.id, title: f.title })),
+      activityCount: activityCount[0]?.count ?? 0
+    });
+  } catch (err) {
+    return res.json({ ...hostInfo, dbError: String(err) });
+  }
+});
+var health_default = router;
+
 // src/routes/campaigns.ts
+var import_express4 = __toESM(require_express2(), 1);
 import { randomBytes } from "crypto";
 
 // ../../node_modules/.pnpm/zod@3.25.76/node_modules/zod/v3/helpers/util.js
@@ -86892,6 +86906,7 @@ var GetRecentActivityResponseItem = objectType({
     "campaign_created",
     "piece_uploaded",
     "piece_approved",
+    "piece_submitted_for_review",
     "comment_added",
     "campaign_approved",
     "folder_created"

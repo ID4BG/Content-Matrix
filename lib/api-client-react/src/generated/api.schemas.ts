@@ -369,6 +369,7 @@ export const ActivityItemType = {
   campaign_created: "campaign_created",
   piece_uploaded: "piece_uploaded",
   piece_approved: "piece_approved",
+  piece_submitted_for_review: "piece_submitted_for_review",
   comment_added: "comment_added",
   campaign_approved: "campaign_approved",
   folder_created: "folder_created",

@@ -981,6 +981,7 @@ export const GetRecentActivityResponseItem = zod.object({
     "campaign_created",
     "piece_uploaded",
     "piece_approved",
+    "piece_submitted_for_review",
     "comment_added",
     "campaign_approved",
     "folder_created",

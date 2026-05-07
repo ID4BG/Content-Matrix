@@ -7,6 +7,7 @@ export const activityTypeEnum = pgEnum("activity_type", [
   "piece_submitted_for_review",
   "comment_added",
   "campaign_approved",
+  "folder_created",
 ]);
 
 export const activityTable = pgTable("activity", {
