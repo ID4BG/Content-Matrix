@@ -269,32 +269,38 @@ router.delete("/campaigns/:id", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
   const { id } = DeleteCampaignParams.parse(req.params);
 
-  const [campaign] = await db
-    .select()
-    .from(campaignsTable)
-    .where(eq(campaignsTable.id, id));
+  try {
+    const [campaign] = await db
+      .select()
+      .from(campaignsTable)
+      .where(eq(campaignsTable.id, id));
 
-  if (!campaign) {
-    res.status(404).json({ error: "Campaign not found" });
-    return;
-  }
-
-  const isCreator = campaign.userId === userId;
-
-  if (!isCreator) {
-    const role = await getMemberRole(userId, id);
-
-    if (role !== "owner") {
-      res
-        .status(403)
-        .json({ error: "You do not have permission to delete this campaign" });
+    if (!campaign) {
+      res.status(404).json({ error: "Campaign not found" });
       return;
     }
+
+    const isCreator = campaign.userId === userId;
+
+    if (!isCreator) {
+      const role = await getMemberRole(userId, id);
+
+      if (role !== "owner") {
+        res
+          .status(403)
+          .json({ error: "You do not have permission to delete this campaign" });
+        return;
+      }
+    }
+
+    await db.delete(campaignsTable).where(eq(campaignsTable.id, id));
+
+    res.status(204).send();
+  } catch (err) {
+    console.error("DELETE_CAMPAIGN_ERROR", err);
+    console.error("FULL_ERROR_JSON", JSON.stringify(err, Object.getOwnPropertyNames(err as object), 2));
+    res.status(500).json({ error: "Failed to delete campaign" });
   }
-
-  await db.delete(campaignsTable).where(eq(campaignsTable.id, id));
-
-  res.status(204).send();
   return;
 });
 

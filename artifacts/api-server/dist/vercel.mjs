@@ -87043,21 +87043,27 @@ router2.patch("/campaigns/:id", requireAuth, async (req, res) => {
 router2.delete("/campaigns/:id", requireAuth, async (req, res) => {
   const userId = req.userId;
   const { id } = DeleteCampaignParams.parse(req.params);
-  const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
-  if (!campaign) {
-    res.status(404).json({ error: "Campaign not found" });
-    return;
-  }
-  const isCreator = campaign.userId === userId;
-  if (!isCreator) {
-    const role = await getMemberRole(userId, id);
-    if (role !== "owner") {
-      res.status(403).json({ error: "You do not have permission to delete this campaign" });
+  try {
+    const [campaign] = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
+    if (!campaign) {
+      res.status(404).json({ error: "Campaign not found" });
       return;
     }
+    const isCreator = campaign.userId === userId;
+    if (!isCreator) {
+      const role = await getMemberRole(userId, id);
+      if (role !== "owner") {
+        res.status(403).json({ error: "You do not have permission to delete this campaign" });
+        return;
+      }
+    }
+    await db.delete(campaignsTable).where(eq(campaignsTable.id, id));
+    res.status(204).send();
+  } catch (err) {
+    console.error("DELETE_CAMPAIGN_ERROR", err);
+    console.error("FULL_ERROR_JSON", JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
+    res.status(500).json({ error: "Failed to delete campaign" });
   }
-  await db.delete(campaignsTable).where(eq(campaignsTable.id, id));
-  res.status(204).send();
   return;
 });
 router2.post("/campaigns/:id/approve", requireAuth, async (req, res) => {
@@ -87829,7 +87835,15 @@ async function getAllAccessibleCampaignIds(userId) {
 }
 router7.get("/dashboard/summary", requireAuth, async (req, res) => {
   const userId = req.userId;
-  const allIds = await getAllAccessibleCampaignIds(userId);
+  let allIds;
+  try {
+    allIds = await getAllAccessibleCampaignIds(userId);
+  } catch (err) {
+    console.error("DASHBOARD_SUMMARY_ERROR", err);
+    console.error("FULL_ERROR_JSON", JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
+    res.status(500).json({ error: "Failed to load dashboard summary" });
+    return;
+  }
   const totalCampaigns = allIds.length;
   const [pieceStats] = allIds.length ? await db.select({ total: sql`count(*)`.mapWith(Number) }).from(contentPiecesTable).where(inArray(contentPiecesTable.campaignId, allIds)) : [{ total: 0 }];
   const statusCounts = allIds.length ? await db.select({

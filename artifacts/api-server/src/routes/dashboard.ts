@@ -37,7 +37,15 @@ async function getAllAccessibleCampaignIds(userId: string): Promise<number[]> {
 router.get("/dashboard/summary", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
 
-  const allIds = await getAllAccessibleCampaignIds(userId);
+  let allIds: number[];
+  try {
+    allIds = await getAllAccessibleCampaignIds(userId);
+  } catch (err) {
+    console.error("DASHBOARD_SUMMARY_ERROR", err);
+    console.error("FULL_ERROR_JSON", JSON.stringify(err, Object.getOwnPropertyNames(err as object), 2));
+    res.status(500).json({ error: "Failed to load dashboard summary" });
+    return;
+  }
   const totalCampaigns = allIds.length;
 
   const [pieceStats] = allIds.length

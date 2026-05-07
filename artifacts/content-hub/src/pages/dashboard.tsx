@@ -22,7 +22,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Dashboard() {
-  const { data: summary, isLoading: isLoadingSummary } =
+  const { data: summary, isLoading: isLoadingSummary, isError: isSummaryError } =
     useGetDashboardSummary();
   const { data: campaigns, isLoading: isLoadingCampaigns } = useListCampaigns();
   const { data: folders, isLoading: isLoadingFolders } = useListFolders();
@@ -43,6 +43,11 @@ export default function Dashboard() {
           {[1, 2, 3, 4].map((i) => (
             <Skeleton key={i} className="h-32 w-full" />
           ))}
+        </div>
+      ) : isSummaryError ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground p-4 border border-dashed">
+          <AlertCircle className="w-4 h-4 text-destructive" />
+          Could not load summary stats. Check your API connection.
         </div>
       ) : summary ? (
         <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
