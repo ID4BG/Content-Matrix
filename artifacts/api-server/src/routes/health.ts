@@ -58,4 +58,20 @@ router.get("/db-info", async (_req, res) => {
   }
 });
 
+// Debug: test campaign lookup by ID without auth — for diagnosing route + DB issues
+router.get("/debug/campaign/:id", async (req, res) => {
+  const rawId = req.params.id;
+  const id = parseInt(rawId, 10);
+  if (isNaN(id)) return res.status(400).json({ error: "Invalid id", rawId });
+  try {
+    const [campaign] = await db
+      .select({ id: campaignsTable.id, title: campaignsTable.title, userId: campaignsTable.userId, status: campaignsTable.status })
+      .from(campaignsTable)
+      .where(sql`${campaignsTable.id} = ${id}`);
+    return res.json({ found: !!campaign, id, campaign: campaign ?? null, rawId });
+  } catch (err) {
+    return res.status(500).json({ error: String(err), rawId, id });
+  }
+});
+
 export default router;

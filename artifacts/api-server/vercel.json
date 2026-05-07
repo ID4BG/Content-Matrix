@@ -1,7 +1,11 @@
 {
+  "version": 2,
   "functions": {
     "api/[...path].js": {
       "includeFiles": "dist/**"
     }
-  }
+  },
+  "routes": [
+    { "src": "/(.*)", "dest": "/api/[...path]" }
+  ]
 }
