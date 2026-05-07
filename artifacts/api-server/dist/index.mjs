@@ -82163,11 +82163,17 @@ var campaignMembersTable = pgTable("campaign_members", {
 // ../../lib/db/src/index.ts
 var { Pool: Pool3 } = esm_default;
 if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?"
-  );
+  throw new Error("DATABASE_URL must be set.");
 }
-var pool = new Pool3({ connectionString: process.env.DATABASE_URL });
+var pool = new Pool3({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
+pool.on("error", (err) => {
+  console.error("PG POOL ERROR:", err);
+});
 var db = drizzle(pool, { schema: schema_exports });
 
 // src/routes/campaigns.ts
@@ -87887,7 +87893,14 @@ async function getFolderWithCount(folder) {
 }
 router8.get("/folders", requireAuth, async (req, res) => {
   const userId = req.userId;
-  const ownedFolders = await db.select().from(foldersTable).where(eq(foldersTable.userId, userId)).orderBy(sql`${foldersTable.createdAt} desc`);
+  let ownedFolders;
+  try {
+    ownedFolders = await db.select().from(foldersTable).where(eq(foldersTable.userId, userId)).orderBy(sql`${foldersTable.createdAt} desc`);
+  } catch (err) {
+    console.error("GET_FOLDERS_ERROR", err);
+    console.error("FULL_ERROR_JSON", JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
+    throw err;
+  }
   const ownedIds = new Set(ownedFolders.map((f) => f.id));
   let memberFolders = [];
   try {
@@ -87930,7 +87943,15 @@ router8.get("/folders", requireAuth, async (req, res) => {
 router8.post("/folders", requireAuth, async (req, res) => {
   const userId = req.userId;
   const body = CreateFolderBody.parse(req.body);
-  const [folder] = await db.insert(foldersTable).values({ ...body, userId }).returning();
+  let folder;
+  try {
+    const [inserted] = await db.insert(foldersTable).values({ ...body, userId }).returning();
+    folder = inserted;
+  } catch (err) {
+    console.error("CREATE_FOLDER_ERROR", err);
+    console.error("FULL_ERROR_JSON", JSON.stringify(err, Object.getOwnPropertyNames(err), 2));
+    throw err;
+  }
   res.status(201).json({ ...folder, campaignCount: 0 });
 });
 router8.patch("/folders/:id", requireAuth, async (req, res) => {

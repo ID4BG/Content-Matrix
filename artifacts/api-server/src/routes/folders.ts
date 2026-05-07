@@ -58,11 +58,18 @@ async function getFolderWithCount(folder: typeof foldersTable.$inferSelect) {
 router.get("/folders", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
 
-  const ownedFolders = await db
-    .select()
-    .from(foldersTable)
-    .where(eq(foldersTable.userId, userId))
-    .orderBy(sql`${foldersTable.createdAt} desc`);
+  let ownedFolders: typeof foldersTable.$inferSelect[];
+  try {
+    ownedFolders = await db
+      .select()
+      .from(foldersTable)
+      .where(eq(foldersTable.userId, userId))
+      .orderBy(sql`${foldersTable.createdAt} desc`);
+  } catch (err) {
+    console.error("GET_FOLDERS_ERROR", err);
+    console.error("FULL_ERROR_JSON", JSON.stringify(err, Object.getOwnPropertyNames(err as object), 2));
+    throw err;
+  }
 
   const ownedIds = new Set(ownedFolders.map(f => f.id));
 
@@ -132,10 +139,18 @@ router.post("/folders", requireAuth, async (req, res) => {
   const userId = (req as any).userId;
   const body = CreateFolderBody.parse(req.body);
 
-  const [folder] = await db
-    .insert(foldersTable)
-    .values({ ...body, userId })
-    .returning();
+  let folder: typeof foldersTable.$inferSelect;
+  try {
+    const [inserted] = await db
+      .insert(foldersTable)
+      .values({ ...body, userId })
+      .returning();
+    folder = inserted;
+  } catch (err) {
+    console.error("CREATE_FOLDER_ERROR", err);
+    console.error("FULL_ERROR_JSON", JSON.stringify(err, Object.getOwnPropertyNames(err as object), 2));
+    throw err;
+  }
 
   res.status(201).json({ ...folder, campaignCount: 0 });
 });
