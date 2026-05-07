@@ -118,12 +118,12 @@ export default function CampaignDetail() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { data: campaign, isLoading: isCampaignLoading } = useGetCampaign(id, {
-    query: { enabled: !!id, queryKey: getGetCampaignQueryKey(id) },
+  const { data: campaign, isLoading: isCampaignLoading, isError: isCampaignError, error: campaignError } = useGetCampaign(id, {
+    query: { enabled: !!id, queryKey: getGetCampaignQueryKey(id), retry: 1 },
   });
   const { data: pieces, isLoading: isPiecesLoading } = useListContentPieces(
     { campaignId: id },
-    { query: { enabled: !!id, queryKey: getListContentPiecesQueryKey({ campaignId: id }) } }
+    { query: { enabled: !!id, queryKey: getListContentPiecesQueryKey({ campaignId: id }), retry: 1 } }
   );
   const { data: folders } = useListFolders();
   const { data: memberFolder } = useQuery<{ id: number; title: string } | null>({
@@ -335,6 +335,32 @@ export default function CampaignDetail() {
         <Skeleton className="h-16 w-full" />
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           {[1,2,3,4,5].map(i => <Skeleton key={i} className="h-40" />)}
+        </div>
+      </div>
+    );
+  }
+
+  if (isCampaignError) {
+    const status = (campaignError as any)?.status;
+    const isNotFound = status === 404;
+    return (
+      <div className="text-center py-24 space-y-3">
+        <h2 className="text-2xl font-bold">{isNotFound ? "Campaign not found" : "Could not load campaign"}</h2>
+        <p className="text-sm text-muted-foreground">
+          {isNotFound
+            ? "This campaign doesn't exist or you don't have access to it."
+            : "There was a problem loading this campaign. Please try again."}
+        </p>
+        <div className="flex gap-3 justify-center pt-2">
+          {!isNotFound && (
+            <button
+              onClick={() => window.location.reload()}
+              className="text-sm underline underline-offset-4"
+            >
+              Retry
+            </button>
+          )}
+          <Link href="/dashboard" className="text-sm underline underline-offset-4">Return to dashboard</Link>
         </div>
       </div>
     );

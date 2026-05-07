@@ -26,6 +26,22 @@ import { requireAuth } from "../middlewares/requireAuth";
 
 const router = Router();
 
+// Simple in-memory cache for Clerk user email lookups (5 min TTL)
+// Avoids a Clerk API round-trip on every single authenticated request
+const clerkEmailCache = new Map<string, { email: string; expiresAt: number }>();
+async function getUserEmail(userId: string): Promise<string | null> {
+  const cached = clerkEmailCache.get(userId);
+  if (cached && cached.expiresAt > Date.now()) return cached.email;
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    const email = user.emailAddresses?.[0]?.emailAddress ?? null;
+    if (email) clerkEmailCache.set(userId, { email, expiresAt: Date.now() + 5 * 60 * 1000 });
+    return email;
+  } catch {
+    return null;
+  }
+}
+
 function withCount(
   campaign: typeof campaignsTable.$inferSelect,
   count: number,
@@ -51,9 +67,7 @@ async function getPieceCount(campaignId: number): Promise<number> {
 
 async function getMemberCampaignIds(userId: string): Promise<number[]> {
   try {
-    const clerkUser = await clerkClient.users.getUser(userId);
-    const email = clerkUser.emailAddresses?.[0]?.emailAddress;
-
+    const email = await getUserEmail(userId);
     if (!email) return [];
 
     const rows = await db
@@ -77,9 +91,7 @@ async function getMemberRole(
   campaignId: number,
 ): Promise<string | null> {
   try {
-    const clerkUser = await clerkClient.users.getUser(userId);
-    const email = clerkUser.emailAddresses?.[0]?.emailAddress;
-
+    const email = await getUserEmail(userId);
     if (!email) return null;
 
     const [row] = await db
@@ -139,8 +151,7 @@ router.get("/campaigns", requireAuth, async (req, res) => {
 
   if (nonOwnedIds.length > 0) {
     try {
-      const clerkUser = await clerkClient.users.getUser(userId);
-      const email = clerkUser.emailAddresses?.[0]?.emailAddress;
+      const email = await getUserEmail(userId);
 
       if (email) {
         const roleRows = await db

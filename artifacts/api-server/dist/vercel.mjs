@@ -55387,7 +55387,7 @@ var require_multer = __commonJS({
 });
 
 // src/app.ts
-var import_express19 = __toESM(require_express2(), 1);
+var import_express20 = __toESM(require_express2(), 1);
 var import_cors = __toESM(require_lib3(), 1);
 var import_pino_http = __toESM(require_logger(), 1);
 
@@ -63633,18 +63633,42 @@ function clerkProxyMiddleware() {
 }
 
 // src/routes/index.ts
-var import_express18 = __toESM(require_express2(), 1);
+var import_express19 = __toESM(require_express2(), 1);
 
 // src/routes/health.ts
-var import_express = __toESM(require_express2(), 1);
-var router = import_express.default.Router();
+var import_express2 = __toESM(require_express2(), 1);
+
+// src/middlewares/requireAuth.ts
+function requireAuth(req, res, next) {
+  const auth = getAuth(req);
+  const userId = auth?.userId;
+  if (!userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+  req.userId = userId;
+  next();
+}
+
+// src/routes/health.ts
+var router = import_express2.default.Router();
 router.get("/healthz", (_req, res) => {
   return res.status(200).json({ status: "ok" });
+});
+router.get("/whoami", requireAuth, async (req, res) => {
+  const userId = req.userId;
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    const email3 = user.emailAddresses?.[0]?.emailAddress ?? null;
+    return res.json({ userId, email: email3 });
+  } catch {
+    return res.json({ userId, email: null });
+  }
 });
 var health_default = router;
 
 // src/routes/campaigns.ts
-var import_express3 = __toESM(require_express2(), 1);
+var import_express4 = __toESM(require_express2(), 1);
 
 // ../../node_modules/.pnpm/pg@8.20.0/node_modules/pg/esm/index.mjs
 var import_lib = __toESM(require_lib5(), 1);
@@ -86880,20 +86904,21 @@ var AcceptPendingInvitesResponse = arrayType(
   AcceptPendingInvitesResponseItem
 );
 
-// src/middlewares/requireAuth.ts
-function requireAuth(req, res, next) {
-  const auth = getAuth(req);
-  const userId = auth?.userId;
-  if (!userId) {
-    res.status(401).json({ error: "Unauthorized" });
-    return;
-  }
-  req.userId = userId;
-  next();
-}
-
 // src/routes/campaigns.ts
-var router2 = (0, import_express3.Router)();
+var router2 = (0, import_express4.Router)();
+var clerkEmailCache = /* @__PURE__ */ new Map();
+async function getUserEmail(userId) {
+  const cached2 = clerkEmailCache.get(userId);
+  if (cached2 && cached2.expiresAt > Date.now()) return cached2.email;
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    const email3 = user.emailAddresses?.[0]?.emailAddress ?? null;
+    if (email3) clerkEmailCache.set(userId, { email: email3, expiresAt: Date.now() + 5 * 60 * 1e3 });
+    return email3;
+  } catch {
+    return null;
+  }
+}
 function withCount(campaign, count, isOwner = true, currentUserRole) {
   return {
     ...campaign,
@@ -86908,8 +86933,7 @@ async function getPieceCount(campaignId) {
 }
 async function getMemberCampaignIds(userId) {
   try {
-    const clerkUser = await clerkClient.users.getUser(userId);
-    const email3 = clerkUser.emailAddresses?.[0]?.emailAddress;
+    const email3 = await getUserEmail(userId);
     if (!email3) return [];
     const rows = await db.select({ campaignId: campaignMembersTable.campaignId }).from(campaignMembersTable).where(
       and(
@@ -86924,8 +86948,7 @@ async function getMemberCampaignIds(userId) {
 }
 async function getMemberRole(userId, campaignId) {
   try {
-    const clerkUser = await clerkClient.users.getUser(userId);
-    const email3 = clerkUser.emailAddresses?.[0]?.emailAddress;
+    const email3 = await getUserEmail(userId);
     if (!email3) return null;
     const [row] = await db.select({ role: campaignMembersTable.role }).from(campaignMembersTable).where(
       and(
@@ -86956,8 +86979,7 @@ router2.get("/campaigns", requireAuth, async (req, res) => {
   const memberRoleMap = /* @__PURE__ */ new Map();
   if (nonOwnedIds.length > 0) {
     try {
-      const clerkUser = await clerkClient.users.getUser(userId);
-      const email3 = clerkUser.emailAddresses?.[0]?.emailAddress;
+      const email3 = await getUserEmail(userId);
       if (email3) {
         const roleRows = await db.select({
           campaignId: campaignMembersTable.campaignId,
@@ -87218,7 +87240,7 @@ router2.patch("/campaigns/:id/channels", requireAuth, async (req, res) => {
 var campaigns_default = router2;
 
 // src/routes/campaign-members.ts
-var import_express5 = __toESM(require_express2(), 1);
+var import_express6 = __toESM(require_express2(), 1);
 
 // src/email.ts
 import nodemailer from "nodemailer";
@@ -87319,7 +87341,7 @@ async function sendInviteEmail(opts) {
 }
 
 // src/routes/campaign-members.ts
-var router3 = (0, import_express5.Router)();
+var router3 = (0, import_express6.Router)();
 var DEFAULT_PERMISSIONS = {
   owner: ["view", "comment", "edit", "create", "approve", "invite"],
   marketer: ["view", "comment", "edit", "create"],
@@ -87375,8 +87397,8 @@ router3.delete("/campaigns/:id/members/:memberId", requireAuth, async (req, res)
 var campaign_members_default = router3;
 
 // src/routes/content-pieces.ts
-var import_express6 = __toESM(require_express2(), 1);
-var router4 = (0, import_express6.Router)();
+var import_express7 = __toESM(require_express2(), 1);
+var router4 = (0, import_express7.Router)();
 var ROLE_PERMISSIONS = {
   owner: ["view", "comment", "create", "edit", "delete", "approve"],
   marketer: ["view", "comment", "create", "edit"],
@@ -87588,12 +87610,12 @@ router4.post("/content-pieces/:id/submit-review", requireAuth, async (req, res) 
 var content_pieces_default = router4;
 
 // src/routes/import-document.ts
-var import_express8 = __toESM(require_express2(), 1);
+var import_express9 = __toESM(require_express2(), 1);
 var import_multer = __toESM(require_multer(), 1);
 import { createRequire } from "module";
 var require2 = createRequire(import.meta.url);
 var mammoth = require2("mammoth");
-var router5 = (0, import_express8.Router)();
+var router5 = (0, import_express9.Router)();
 var upload = (0, import_multer.default)({ storage: import_multer.default.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 function parseDocumentText(text2) {
   const lines = text2.split("\n").map((l) => l.trim());
@@ -87802,8 +87824,8 @@ router5.post(
 var import_document_default = router5;
 
 // src/routes/comments.ts
-var import_express9 = __toESM(require_express2(), 1);
-var router6 = (0, import_express9.Router)();
+var import_express10 = __toESM(require_express2(), 1);
+var router6 = (0, import_express10.Router)();
 router6.get("/comments", async (req, res) => {
   const params = ListCommentsQueryParams.parse(req.query);
   const comments = await db.select().from(commentsTable).where(eq(commentsTable.contentPieceId, params.contentPieceId)).orderBy(sql`${commentsTable.createdAt} asc`);
@@ -87831,14 +87853,26 @@ router6.delete("/comments/:id", async (req, res) => {
 var comments_default = router6;
 
 // src/routes/dashboard.ts
-var import_express10 = __toESM(require_express2(), 1);
-var router7 = (0, import_express10.Router)();
+var import_express11 = __toESM(require_express2(), 1);
+var router7 = (0, import_express11.Router)();
+var clerkEmailCache2 = /* @__PURE__ */ new Map();
+async function getUserEmail2(userId) {
+  const cached2 = clerkEmailCache2.get(userId);
+  if (cached2 && cached2.expiresAt > Date.now()) return cached2.email;
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    const email3 = user.emailAddresses?.[0]?.emailAddress ?? null;
+    if (email3) clerkEmailCache2.set(userId, { email: email3, expiresAt: Date.now() + 5 * 60 * 1e3 });
+    return email3;
+  } catch {
+    return null;
+  }
+}
 async function getAllAccessibleCampaignIds(userId) {
   const ownedRows = await db.select({ id: campaignsTable.id }).from(campaignsTable).where(eq(campaignsTable.userId, userId));
   let memberIds = [];
   try {
-    const clerkUser = await clerkClient.users.getUser(userId);
-    const email3 = clerkUser.emailAddresses?.[0]?.emailAddress;
+    const email3 = await getUserEmail2(userId);
     if (email3) {
       const memberRows = await db.select({ campaignId: campaignMembersTable.campaignId }).from(campaignMembersTable).where(and(
         eq(campaignMembersTable.email, email3),
@@ -87900,9 +87934,22 @@ router7.get("/dashboard/activity", requireAuth, async (req, res) => {
 var dashboard_default = router7;
 
 // src/routes/folders.ts
-var import_express12 = __toESM(require_express2(), 1);
+var import_express13 = __toESM(require_express2(), 1);
 import { randomBytes as randomBytes2 } from "crypto";
-var router8 = (0, import_express12.Router)();
+var router8 = (0, import_express13.Router)();
+var clerkEmailCache3 = /* @__PURE__ */ new Map();
+async function getUserEmail3(userId) {
+  const cached2 = clerkEmailCache3.get(userId);
+  if (cached2 && cached2.expiresAt > Date.now()) return cached2.email;
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    const email3 = user.emailAddresses?.[0]?.emailAddress ?? null;
+    if (email3) clerkEmailCache3.set(userId, { email: email3, expiresAt: Date.now() + 5 * 60 * 1e3 });
+    return email3;
+  } catch {
+    return null;
+  }
+}
 var DEFAULT_PERMISSIONS2 = {
   owner: ["view", "comment", "edit", "create", "approve", "invite"],
   marketer: ["view", "comment", "edit", "create"],
@@ -87911,8 +87958,7 @@ var DEFAULT_PERMISSIONS2 = {
 async function getUserRoleInFolder(userId, folderCampaignIds) {
   if (folderCampaignIds.length === 0) return null;
   try {
-    const clerkUser = await clerkClient.users.getUser(userId);
-    const email3 = clerkUser.emailAddresses?.[0]?.emailAddress;
+    const email3 = await getUserEmail3(userId);
     if (!email3) return null;
     const [row] = await db.select({ role: campaignMembersTable.role }).from(campaignMembersTable).where(and(
       inArray(campaignMembersTable.campaignId, folderCampaignIds),
@@ -87941,8 +87987,7 @@ router8.get("/folders", requireAuth, async (req, res) => {
   const ownedIds = new Set(ownedFolders.map((f) => f.id));
   let memberFolders = [];
   try {
-    const clerkUser = await clerkClient.users.getUser(userId);
-    const email3 = clerkUser.emailAddresses?.[0]?.emailAddress;
+    const email3 = await getUserEmail3(userId);
     if (email3) {
       const memberRows = await db.select({ campaignId: campaignMembersTable.campaignId }).from(campaignMembersTable).where(
         and(
@@ -88125,8 +88170,8 @@ router8.get("/shared/folder/:token", async (req, res) => {
 var folders_default = router8;
 
 // src/routes/invites.ts
-var import_express14 = __toESM(require_express2(), 1);
-var router9 = (0, import_express14.Router)();
+var import_express15 = __toESM(require_express2(), 1);
+var router9 = (0, import_express15.Router)();
 router9.post("/invites/accept-pending", requireAuth, async (req, res) => {
   const userId = req.userId;
   let email3;
@@ -88165,8 +88210,8 @@ router9.post("/invites/accept-pending", requireAuth, async (req, res) => {
 var invites_default = router9;
 
 // src/routes/admin-fix.ts
-var import_express16 = __toESM(require_express2(), 1);
-var router10 = (0, import_express16.Router)();
+var import_express17 = __toESM(require_express2(), 1);
+var router10 = (0, import_express17.Router)();
 var ALLOWED_EMAILS = ["arnela.ayvazyan@gmail.com"];
 var OWNER_PERMISSIONS = ["view", "comment", "edit", "create", "approve", "invite"];
 router10.get("/admin/fix-ownership", requireAuth, async (req, res) => {
@@ -88210,7 +88255,7 @@ async function handleFix(req, res) {
 var admin_fix_default = router10;
 
 // src/routes/index.ts
-var router11 = (0, import_express18.Router)();
+var router11 = (0, import_express19.Router)();
 router11.use(health_default);
 router11.use(campaigns_default);
 router11.use(campaign_members_default);
@@ -88225,7 +88270,7 @@ var routes_default = router11;
 
 // src/app.ts
 var pinoHttp = typeof import_pino_http.default === "function" ? import_pino_http.default : import_pino_http.default.default;
-var app = (0, import_express19.default)();
+var app = (0, import_express20.default)();
 app.use(
   pinoHttp({
     logger,
@@ -88247,8 +88292,8 @@ app.use(
 );
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 app.use((0, import_cors.default)({ credentials: true, origin: true }));
-app.use(import_express19.default.json());
-app.use(import_express19.default.urlencoded({ extended: true }));
+app.use(import_express20.default.json());
+app.use(import_express20.default.urlencoded({ extended: true }));
 app.use(
   clerkMiddleware((req) => ({
     publishableKey: publishableKeyFromHost(

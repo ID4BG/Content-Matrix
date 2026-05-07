@@ -9,6 +9,21 @@ import { requireAuth } from "../middlewares/requireAuth";
 
 const router: IRouter = Router();
 
+// Shared Clerk email cache (5 min TTL)
+const clerkEmailCache = new Map<string, { email: string; expiresAt: number }>();
+async function getUserEmail(userId: string): Promise<string | null> {
+  const cached = clerkEmailCache.get(userId);
+  if (cached && cached.expiresAt > Date.now()) return cached.email;
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    const email = user.emailAddresses?.[0]?.emailAddress ?? null;
+    if (email) clerkEmailCache.set(userId, { email, expiresAt: Date.now() + 5 * 60 * 1000 });
+    return email;
+  } catch {
+    return null;
+  }
+}
+
 async function getAllAccessibleCampaignIds(userId: string): Promise<number[]> {
   const ownedRows = await db
     .select({ id: campaignsTable.id })
@@ -17,8 +32,7 @@ async function getAllAccessibleCampaignIds(userId: string): Promise<number[]> {
 
   let memberIds: number[] = [];
   try {
-    const clerkUser = await clerkClient.users.getUser(userId);
-    const email = clerkUser.emailAddresses?.[0]?.emailAddress;
+    const email = await getUserEmail(userId);
     if (email) {
       const memberRows = await db
         .select({ campaignId: campaignMembersTable.campaignId })

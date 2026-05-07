@@ -20,6 +20,21 @@ import { clerkClient } from "@clerk/express";
 
 const router: IRouter = Router();
 
+// Shared Clerk email cache (5 min TTL)
+const clerkEmailCache = new Map<string, { email: string; expiresAt: number }>();
+async function getUserEmail(userId: string): Promise<string | null> {
+  const cached = clerkEmailCache.get(userId);
+  if (cached && cached.expiresAt > Date.now()) return cached.email;
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    const email = user.emailAddresses?.[0]?.emailAddress ?? null;
+    if (email) clerkEmailCache.set(userId, { email, expiresAt: Date.now() + 5 * 60 * 1000 });
+    return email;
+  } catch {
+    return null;
+  }
+}
+
 const DEFAULT_PERMISSIONS: Record<string, string[]> = {
   owner: ["view", "comment", "edit", "create", "approve", "invite"],
   marketer: ["view", "comment", "edit", "create"],
@@ -29,8 +44,7 @@ const DEFAULT_PERMISSIONS: Record<string, string[]> = {
 async function getUserRoleInFolder(userId: string, folderCampaignIds: number[]): Promise<string | null> {
   if (folderCampaignIds.length === 0) return null;
   try {
-    const clerkUser = await clerkClient.users.getUser(userId);
-    const email = clerkUser.emailAddresses?.[0]?.emailAddress;
+    const email = await getUserEmail(userId);
     if (!email) return null;
     const [row] = await db
       .select({ role: campaignMembersTable.role })
@@ -76,8 +90,7 @@ router.get("/folders", requireAuth, async (req, res) => {
   // Also fetch folders the user was invited to (via accepted campaign membership)
   let memberFolders: typeof foldersTable.$inferSelect[] = [];
   try {
-    const clerkUser = await clerkClient.users.getUser(userId);
-    const email = clerkUser.emailAddresses?.[0]?.emailAddress;
+    const email = await getUserEmail(userId);
     if (email) {
       const memberRows = await db
         .select({ campaignId: campaignMembersTable.campaignId })
